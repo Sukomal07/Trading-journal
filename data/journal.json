@@ -1,7 +1,7 @@
 {
   "trades": [],
   "settings": {
-    "accountBalance": 470,
+    "accountBalance": 500,
     "riskPerTrade": 2,
     "maxDailyLoss": 6,
     "maxDailyTrades": 3,

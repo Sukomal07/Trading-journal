@@ -15,10 +15,12 @@ export default function SettingsPage() {
       trades={journal.trades}
       settings={journal.settings}
       loading={journal.loading}
+      toast={journal.toast}
       showForm={journal.showForm}
       editTrade={journal.editTrade}
       setShowForm={journal.setShowForm}
       setEditTrade={journal.setEditTrade}
+      setToast={journal.setToast}
       saveTrade={journal.saveTrade}
     >
       <SettingsPanel

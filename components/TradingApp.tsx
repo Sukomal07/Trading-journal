@@ -39,6 +39,10 @@ import { format, subDays } from "date-fns";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 export type View = "dashboard" | "journal" | "analytics" | "settings";
+type Toast = {
+  message: string;
+  tone: "success" | "error";
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (n: number, d = 2) => n.toFixed(d);
@@ -1776,6 +1780,7 @@ export function useTradingJournal() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [searchText, setSearchText] = useState("");
+  const [toast, setToast] = useState<Toast | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1836,13 +1841,17 @@ export function useTradingJournal() {
   };
 
   const saveSettings = async (s: Settings) => {
-    await fetch("/api/settings", {
+    const response = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(s),
     });
+    if (!response.ok) {
+      setToast({ message: "Could not save settings.", tone: "error" });
+      return;
+    }
     setSettings(s);
-    alert("Settings saved!");
+    setToast({ message: "Settings saved.", tone: "success" });
   };
 
   const filteredTrades = trades.filter((t) => {
@@ -1864,6 +1873,7 @@ export function useTradingJournal() {
     showForm,
     editTrade,
     loading,
+    toast,
     filterStatus,
     searchText,
     filteredTrades,
@@ -1871,6 +1881,7 @@ export function useTradingJournal() {
     setEditTrade,
     setFilterStatus,
     setSearchText,
+    setToast,
     saveTrade,
     deleteTrade,
     saveSettings,
@@ -1883,10 +1894,12 @@ export function TradingPageShell({
   trades,
   settings,
   loading,
+  toast,
   showForm,
   editTrade,
   setShowForm,
   setEditTrade,
+  setToast,
   saveTrade,
   children,
 }: {
@@ -1894,10 +1907,12 @@ export function TradingPageShell({
   trades: Trade[];
   settings: Settings;
   loading: boolean;
+  toast: Toast | null;
   showForm: boolean;
   editTrade?: Trade;
   setShowForm: (show: boolean) => void;
   setEditTrade: (trade: Trade | undefined) => void;
+  setToast: (toast: Toast | null) => void;
   saveTrade: (form: Partial<Trade>) => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -1911,6 +1926,13 @@ export function TradingPageShell({
       { id: "analytics", label: "Analytics", icon: Activity },
       { id: "settings", label: "Settings", icon: SettingsIcon },
     ];
+
+  useEffect(() => {
+    if (!toast) return;
+
+    const timeout = window.setTimeout(() => setToast(null), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [setToast, toast]);
 
   return (
     <div
@@ -2093,6 +2115,28 @@ export function TradingPageShell({
           }}
           initial={editTrade}
         />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-5 right-5 z-[120] max-w-[calc(100vw-2rem)] rounded-lg border border-[var(--border-dim)] bg-[var(--bg-panel)] px-4 py-3 text-sm text-[var(--text)] shadow-2xl max-[640px]:left-4 max-[640px]:right-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2
+              size={18}
+              className={
+                toast.tone === "success" ? "text-[var(--green)]" : "text-[var(--red)]"
+              }
+            />
+            <div className="min-w-0 flex-1">{toast.message}</div>
+            <button
+              type="button"
+              onClick={() => setToast(null)}
+              className="text-[var(--text-muted)] transition hover:text-[var(--text)]"
+              aria-label="Dismiss notification"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
       )}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
