@@ -24,15 +24,20 @@ export default function JournalPage() {
       saveTrade={journal.saveTrade}
     >
       <div>
-        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+        <div
+          style={{ display: "flex", gap: 12, marginBottom: 20 }}
+          className="max-[640px]:!items-stretch max-[640px]:!flex-col"
+        >
           <input
             style={{ ...S.input, maxWidth: 300 }}
+            className="max-[640px]:!max-w-none max-[640px]:!w-full"
             placeholder="Search trades..."
             value={journal.searchText}
             onChange={(e) => journal.setSearchText(e.target.value)}
           />
           <select
             style={{ ...S.select, width: 140 }}
+            className="max-[640px]:!w-full"
             value={journal.filterStatus}
             onChange={(e) => journal.setFilterStatus(e.target.value)}
           >
@@ -52,53 +57,56 @@ export default function JournalPage() {
             {journal.filteredTrades.length} trades
           </div>
         </div>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "90px 80px 60px 100px 100px 80px 80px 80px 1fr 80px",
-            gap: 12,
-            padding: "8px 20px",
-            marginBottom: 4,
-          }}
-        >
-          {[
-            "Date",
-            "Symbol",
-            "Dir",
-            "Lot",
-            "Entry/Exit",
-            "P&L",
-            "Pips",
-            "Status",
-            "Setup",
-            "",
-          ].map((h) => (
-            <div
-              key={h}
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.08em",
-                color: "var(--text-dim)",
-                textTransform: "uppercase",
+        <div className="overflow-x-auto pb-1">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "90px 80px 60px 100px 100px 80px 80px 80px 1fr 80px",
+              gap: 12,
+              padding: "8px 20px",
+              marginBottom: 4,
+            }}
+            className="min-w-[980px]"
+          >
+            {[
+              "Date",
+              "Symbol",
+              "Dir",
+              "Lot",
+              "Entry/Exit",
+              "P&L",
+              "Pips",
+              "Status",
+              "Setup",
+              "",
+            ].map((h) => (
+              <div
+                key={h}
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.08em",
+                  color: "var(--text-dim)",
+                  textTransform: "uppercase",
+                }}
+              >
+                {h}
+              </div>
+            ))}
+          </div>
+          {journal.filteredTrades.map((trade) => (
+            <TradeRow
+              key={trade.id}
+              trade={trade}
+              onEdit={() => {
+                journal.setEditTrade(trade);
+                journal.setShowForm(true);
               }}
-            >
-              {h}
-            </div>
+              onDelete={() => journal.deleteTrade(trade.id)}
+            />
           ))}
         </div>
-        {journal.filteredTrades.map((trade) => (
-          <TradeRow
-            key={trade.id}
-            trade={trade}
-            onEdit={() => {
-              journal.setEditTrade(trade);
-              journal.setShowForm(true);
-            }}
-            onDelete={() => journal.deleteTrade(trade.id)}
-          />
-        ))}
         {journal.filteredTrades.length === 0 && (
           <div
             style={{

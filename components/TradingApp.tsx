@@ -257,6 +257,7 @@ function TradeForm({
           overflowY: "auto",
           padding: 32,
         }}
+        className="max-[640px]:!max-h-[94vh] max-[640px]:!p-5"
       >
         <div
           style={{
@@ -279,6 +280,7 @@ function TradeForm({
 
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+          className="max-[640px]:!grid-cols-1"
         >
           {/* Date & Time */}
           <div>
@@ -317,6 +319,7 @@ function TradeForm({
                 gridTemplateColumns: "1fr 1fr",
                 gap: 8,
               }}
+              className="max-[640px]:!grid-cols-1"
             >
               {(["BUY", "SELL"] as TradeDirection[]).map((d) => (
                 <button
@@ -572,6 +575,7 @@ export function TradeRow({
           cursor: "pointer",
           userSelect: "none",
         }}
+        className="min-w-[980px]"
       >
         <div
           style={{
@@ -698,6 +702,7 @@ export function TradeRow({
             gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
             gap: 16,
           }}
+          className="max-[640px]:!grid-cols-1"
         >
           <div>
             <div style={S.label}>SL / TP</div>
@@ -838,6 +843,7 @@ export function Dashboard({
           gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: 16,
         }}
+        className="max-[640px]:!grid-cols-1"
       >
         <div style={{ ...S.goldCard, padding: "20px 24px" }}>
           <div
@@ -921,6 +927,7 @@ export function Dashboard({
             gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
             gap: 20,
           }}
+          className="max-[640px]:!grid-cols-1"
         >
           <div>
             <div
@@ -1043,7 +1050,10 @@ export function Dashboard({
       </div>
 
       {/* Charts */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+        className="max-[900px]:!grid-cols-1"
+      >
         <div style={{ ...S.card, padding: 24 }}>
           <div
             style={{
@@ -1279,6 +1289,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
           gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           gap: 16,
         }}
+        className="max-[640px]:!grid-cols-1"
       >
         <StatCard
           label="Avg R:R"
@@ -1318,7 +1329,10 @@ export function Analytics({ trades }: { trades: Trade[] }) {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+        className="max-[900px]:!grid-cols-1"
+      >
         <div style={{ ...S.card, padding: 24 }}>
           <div
             style={{
@@ -1448,6 +1462,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
                 padding: "10px 0",
                 borderBottom: "1px solid var(--border-dim)",
               }}
+              className="max-[900px]:!grid-cols-2 max-[640px]:!grid-cols-1"
             >
               <div style={{ fontSize: 13 }}>{s.setup}</div>
               <div
@@ -1521,6 +1536,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
             gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
             gap: 12,
           }}
+          className="max-[640px]:!grid-cols-1"
         >
           {byEmotion
             .filter((e) => e.trades > 0)
@@ -1601,6 +1617,7 @@ export function SettingsPanel({
         </h2>
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
+          className="max-[640px]:!grid-cols-1"
         >
           <div style={{ gridColumn: "1/-1" }}>
             <label style={S.label}>Your Trading Name</label>
@@ -1919,8 +1936,12 @@ export function TradingPageShell({
           backdropFilter: "blur(12px)",
           zIndex: 50,
         }}
+        className="max-[900px]:!h-auto max-[900px]:!items-stretch max-[900px]:!flex-col max-[900px]:!gap-3 max-[900px]:!px-4 max-[900px]:!py-3"
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <div
+          style={{ display: "flex", alignItems: "center", gap: 20 }}
+          className="max-[900px]:!items-start max-[900px]:!flex-col max-[900px]:!gap-3"
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
               style={{
@@ -1959,11 +1980,15 @@ export function TradingPageShell({
               </div>
             </div>
           </div>
-          <nav style={{ display: "flex", gap: 4, marginLeft: 24 }}>
+          <nav
+            style={{ display: "flex", gap: 4, marginLeft: 24 }}
+            className="max-[900px]:!ml-0 max-[900px]:!w-full max-[900px]:overflow-x-auto max-[900px]:pb-0.5"
+          >
             {navItems.map(({ id, label, icon: Icon }) => (
               <Link
                 key={id}
                 href={`/${id}`}
+                className="max-[900px]:flex-none max-[900px]:whitespace-nowrap"
                 style={{
                   ...S.btn,
                   padding: "7px 16px",
@@ -1983,13 +2008,17 @@ export function TradingPageShell({
             ))}
           </nav>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div
+          style={{ display: "flex", gap: 10, alignItems: "center" }}
+          className="max-[900px]:!w-full max-[900px]:!justify-between max-[640px]:!items-stretch max-[640px]:!flex-col"
+        >
           <span
             style={{
               fontFamily: "DM Mono",
               fontSize: 13,
               color: "var(--text-muted)",
             }}
+            className="max-[640px]:w-full max-[640px]:justify-center"
           >
             Balance:{" "}
             <span style={{ color: "var(--gold)" }}>
@@ -2030,6 +2059,7 @@ export function TradingPageShell({
           width: "100%",
           margin: "0 auto",
         }}
+        className="max-[900px]:!px-4 max-[900px]:!py-5"
       >
         {loading ? (
           <div
