@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   };
   trade = { ...trade, ...calcPnl(trade) } as Trade;
   db.trades.push(trade);
-  writeDB(db);
+  await writeDB(db);
   return NextResponse.json({ trade }, { status: 201 });
 }
 
@@ -77,7 +77,7 @@ export async function PUT(req: NextRequest) {
   };
   updated = { ...updated, ...calcPnl(updated) } as Trade;
   db.trades[idx] = updated;
-  writeDB(db);
+  await writeDB(db);
   return NextResponse.json({ trade: updated });
 }
 
@@ -86,6 +86,6 @@ export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   db.trades = db.trades.filter((t) => t.id !== id);
-  writeDB(db);
+  await writeDB(db);
   return NextResponse.json({ ok: true });
 }

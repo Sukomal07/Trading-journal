@@ -10,6 +10,6 @@ export async function PUT(req: NextRequest) {
   const db = await readDB();
   const body = await req.json();
   db.settings = { ...db.settings, ...body };
-  writeDB(db);
+  await writeDB(db);
   return NextResponse.json(db.settings);
 }
