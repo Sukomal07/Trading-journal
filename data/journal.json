@@ -1,0 +1,13 @@
+{
+  "trades": [],
+  "settings": {
+    "accountBalance": 470,
+    "riskPerTrade": 2,
+    "maxDailyLoss": 6,
+    "maxDailyTrades": 3,
+    "rrRatio": 2,
+    "currency": "USD",
+    "broker": "XM",
+    "tradingName": "Gold Trader"
+  }
+}
