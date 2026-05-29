@@ -1,42 +1,36 @@
-import fs from 'fs';
-import path from 'path';
-import { DB, Settings } from './types';
+import { put, head, getDownloadUrl } from '@vercel/blob';
+import { DB, Settings, Trade } from './types';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'journal.json');
-
-const defaultSettings: Settings = {
-  accountBalance: 500,
-  riskPerTrade: 2,
-  maxDailyLoss: 6,
-  maxDailyTrades: 3,
-  rrRatio: 2,
-  currency: 'USD',
-  broker: '',
-  tradingName: 'Gold Trader',
-};
+const DB_FILE = 'journal.json';
 
 const defaultDB: DB = {
   trades: [],
-  settings: defaultSettings,
+  settings: {
+    accountBalance: 500,
+    riskPerTrade: 2,
+    maxDailyLoss: 6,
+    maxDailyTrades: 3,
+    rrRatio: 2,
+    currency: 'USD',
+    broker: '',
+    tradingName: 'Gold Trader',
+  },
 };
 
-export function readDB(): DB {
+export async function readDB(): Promise<DB> {
   try {
-    const dir = path.dirname(DB_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(DB_PATH)) {
-      fs.writeFileSync(DB_PATH, JSON.stringify(defaultDB, null, 2));
-      return defaultDB;
-    }
-    const raw = fs.readFileSync(DB_PATH, 'utf-8');
-    return JSON.parse(raw) as DB;
+    const blob = await head(DB_FILE);
+    const res = await fetch(blob.url);
+    return await res.json();
   } catch {
     return defaultDB;
   }
 }
 
-export function writeDB(db: DB): void {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+export async function writeDB(db: DB): Promise<void> {
+  await put(DB_FILE, JSON.stringify(db), {
+    access: 'public',
+    contentType: 'application/json',
+    addRandomSuffix: false,
+  });
 }

@@ -30,7 +30,7 @@ function calcPnl(trade: Partial<Trade>): Partial<Trade> {
 }
 
 export async function GET(req: NextRequest) {
-  const db = readDB();
+  const db = await readDB();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const date = searchParams.get("date");
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const db = readDB();
+  const db = await readDB();
   const body = await req.json();
   const now = new Date().toISOString();
   let trade: Trade = {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const db = readDB();
+  const db = await readDB();
   const body = await req.json();
   const idx = db.trades.findIndex((t) => t.id === body.id);
   if (idx === -1)
@@ -82,7 +82,7 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const db = readDB();
+  const db = await readDB();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   db.trades = db.trades.filter((t) => t.id !== id);
