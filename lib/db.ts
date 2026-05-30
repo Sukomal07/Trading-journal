@@ -2,15 +2,23 @@ import { prisma } from './prisma';
 import { Trade, Settings, BalanceEntry, DB } from './types';
 
 const defaultSettings: Settings = {
-  accountBalance: 500,
-  riskPerTrade: 2,
-  maxDailyLoss: 6,
-  maxDailyTrades: 3,
+  accountBalance: 0,
+  riskPerTrade: 0,
+  maxDailyLoss: 0,
+  maxDailyTrades: 0,
   rrRatio: 2,
-  currency: 'USD',
+  currency: '',
   broker: '',
-  tradingName: 'Gold Trader',
+  tradingName: '',
 };
+
+function calcSettingsFromBalance(balance: number): Partial<Settings> {
+  if (balance <= 0) return {};
+  const riskPerTrade = 2; // 2% default
+  const maxDailyLoss = 6; // 6% default (3x riskPerTrade)
+  const maxDailyTrades = Math.floor(maxDailyLoss / riskPerTrade);
+  return { accountBalance: balance, riskPerTrade, maxDailyLoss, maxDailyTrades };
+}
 
 function parseTags(tags: string): string[] {
   try {
@@ -152,7 +160,7 @@ export async function getSettings(): Promise<Settings> {
     await saveSettings(defaultSettings);
     return defaultSettings;
   }
-  return {
+  const base = {
     accountBalance: row.accountBalance,
     riskPerTrade: row.riskPerTrade,
     maxDailyLoss: row.maxDailyLoss,
@@ -162,6 +170,12 @@ export async function getSettings(): Promise<Settings> {
     broker: row.broker,
     tradingName: row.tradingName,
   };
+  // Auto-calculate risk params from balance if they are still at zero
+  if (base.accountBalance > 0 && base.riskPerTrade === 0) {
+    const calc = calcSettingsFromBalance(base.accountBalance);
+    return { ...base, ...calc } as Settings;
+  }
+  return base;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -198,6 +212,7 @@ export async function getBalanceEntryById(id: string): Promise<BalanceEntry | un
 export async function resetDatabase(): Promise<void> {
   await prisma.trade.deleteMany();
   await prisma.balanceEntry.deleteMany();
+  await prisma.settings.deleteMany();
 }
 
 export async function closeDatabase(): Promise<void> {

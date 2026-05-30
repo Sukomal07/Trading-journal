@@ -26,15 +26,29 @@ function calcPnl(trade: Partial<Trade>): Partial<Trade> {
   const pnl = pips * pip * multiplier;
   const result = pnl > 0.01 ? "WIN" : pnl < -0.01 ? "LOSS" : "BREAKEVEN";
   const rrRatio = trade.riskAmount
-    ? Math.abs(pnl) / trade.riskAmount
+    ? pnl / trade.riskAmount
     : undefined;
+  const rewardAmount = pnl > 0 ? parseFloat(pnl.toFixed(2)) : undefined;
   return {
     ...trade,
     pnl: parseFloat(pnl.toFixed(2)),
     pips: parseFloat(pips.toFixed(1)),
     result,
     rrRatio: rrRatio ? parseFloat(rrRatio.toFixed(2)) : undefined,
+    rewardAmount,
   };
+}
+
+function validateTrade(body: Partial<Trade>): string | null {
+  if (!body.symbol || body.symbol.trim() === "") return "Symbol is required";
+  if (!body.direction) return "Direction is required";
+  if (!body.date) return "Date is required";
+  if (!body.entryPrice || body.entryPrice <= 0) return "Entry price must be greater than 0";
+  if (!body.stopLoss || body.stopLoss <= 0) return "Stop loss must be greater than 0";
+  if (!body.takeProfit || body.takeProfit <= 0) return "Take profit must be greater than 0";
+  if (!body.lotSize || body.lotSize <= 0) return "Lot size must be greater than 0";
+  if (body.riskAmount == null || body.riskAmount < 0) return "Risk amount is required";
+  return null;
 }
 
 export async function GET(req: NextRequest) {
@@ -48,6 +62,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const validationError = validateTrade(body);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
   const now = new Date().toISOString();
   let trade: Trade = {
     ...body,
@@ -64,6 +82,10 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
+  const validationError = validateTrade(body);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
   const existing = await getTradeById(body.id);
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });

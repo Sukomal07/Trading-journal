@@ -288,6 +288,12 @@ function TradeForm({
     settings.riskPerTrade,
     15,
   );
+  const actualRiskAmt = suggestedLot * 15 * PIP_VALUE_PER_001 * 100;
+  const actualRiskPct =
+    settings.accountBalance > 0
+      ? (actualRiskAmt / settings.accountBalance) * 100
+      : 0;
+  const overRisking = actualRiskPct > settings.riskPerTrade * 1.05;
   const [form, setForm] = useState<Partial<Trade>>(
     initial || {
       date: today,
@@ -306,6 +312,49 @@ function TradeForm({
   const [customSetup, setCustomSetup] = useState(false);
   const set = (k: keyof Trade, v: unknown) =>
     setForm((p) => ({ ...p, [k]: v }));
+
+  const init = (initial || {}) as Partial<Trade>;
+  const [raw, setRaw] = useState({
+    lotSize: init.lotSize != null ? String(init.lotSize) : String(suggestedLot),
+    riskAmount: init.riskAmount != null ? String(init.riskAmount) : String(riskAmt),
+    entryPrice: init.entryPrice != null ? String(init.entryPrice) : "",
+    stopLoss: init.stopLoss != null ? String(init.stopLoss) : "",
+    takeProfit: init.takeProfit != null ? String(init.takeProfit) : "",
+    exitPrice: init.exitPrice != null ? String(init.exitPrice) : "",
+  });
+
+  const updateNum = (field: keyof typeof raw, val: string) => {
+    setRaw((prev) => ({ ...prev, [field]: val }));
+    if (val === "" || val === ".") {
+      if (field === "lotSize" || field === "riskAmount" || field === "exitPrice") {
+        set(field, undefined);
+      } else {
+        set(field, 0);
+      }
+    } else {
+      const n = parseFloat(val);
+      if (!Number.isNaN(n)) {
+        set(field, n);
+      }
+    }
+  };
+
+  const blurNum = (field: keyof typeof raw) => {
+    const val = raw[field];
+    if (val === "" || val === "." || Number.isNaN(parseFloat(val))) {
+      setRaw((prev) => ({ ...prev, [field]: "" }));
+      if (field === "lotSize" || field === "riskAmount" || field === "exitPrice") {
+        set(field, undefined);
+      } else {
+        set(field, 0);
+      }
+    } else {
+      const n = parseFloat(val);
+      const normalized = Number.isNaN(n) ? 0 : n;
+      setRaw((prev) => ({ ...prev, [field]: String(normalized) }));
+      set(field, normalized);
+    }
+  };
 
   const suggestion = useMemo(() => {
     if (form.entryPrice && form.lotSize && form.riskAmount && form.direction) {
@@ -332,6 +381,11 @@ function TradeForm({
       ...prev,
       stopLoss: suggestion.sl,
       takeProfit: suggestion.tp,
+    }));
+    setRaw((prev) => ({
+      ...prev,
+      stopLoss: String(suggestion.sl),
+      takeProfit: String(suggestion.tp),
     }));
   };
 
@@ -395,6 +449,15 @@ function TradeForm({
             .
           </span>
         </div>
+        {overRisking && (
+          <div className="mb-3 rounded-lg border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-3.5 py-2.5 text-xs text-[var(--red)]">
+            <strong>Over-risking warning:</strong> The minimum lot size (0.01) with
+            a 15-pip stop actually risks ${actualRiskAmt.toFixed(2)} (
+            {actualRiskPct.toFixed(1)}% of balance) instead of your intended{" "}
+            {settings.riskPerTrade}%. Consider a wider stop or accepting the
+            higher risk.
+          </div>
+        )}
 
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
@@ -482,30 +545,36 @@ function TradeForm({
             <label style={S.label}>Lot Size</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
-              value={form.lotSize}
-              onChange={(e) => set("lotSize", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.lotSize}
+              onChange={(e) => updateNum("lotSize", e.target.value)}
+              onBlur={() => blurNum("lotSize")}
             />
           </div>
           <div>
             <label style={S.label}>Risk Amount ($)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
-              value={form.riskAmount}
-              onChange={(e) => set("riskAmount", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.riskAmount}
+              onChange={(e) => updateNum("riskAmount", e.target.value)}
+              onBlur={() => blurNum("riskAmount")}
             />
           </div>
           <div>
             <label style={S.label}>Entry Price</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
-              value={form.entryPrice || ""}
-              onChange={(e) => set("entryPrice", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.entryPrice}
+              onChange={(e) => updateNum("entryPrice", e.target.value)}
+              onBlur={() => blurNum("entryPrice")}
               placeholder="e.g. 2315.50"
             />
           </div>
@@ -513,10 +582,12 @@ function TradeForm({
             <label style={S.label}>Stop Loss</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
-              value={form.stopLoss || ""}
-              onChange={(e) => set("stopLoss", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.stopLoss}
+              onChange={(e) => updateNum("stopLoss", e.target.value)}
+              onBlur={() => blurNum("stopLoss")}
               placeholder="e.g. 2312.00"
             />
           </div>
@@ -524,10 +595,12 @@ function TradeForm({
             <label style={S.label}>Take Profit</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
-              value={form.takeProfit || ""}
-              onChange={(e) => set("takeProfit", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.takeProfit}
+              onChange={(e) => updateNum("takeProfit", e.target.value)}
+              onBlur={() => blurNum("takeProfit")}
               placeholder="e.g. 2322.00"
             />
           </div>
@@ -535,15 +608,12 @@ function TradeForm({
             <label style={S.label}>Exit Price (leave blank if open)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
-              value={form.exitPrice || ""}
-              onChange={(e) =>
-                set(
-                  "exitPrice",
-                  e.target.value ? parseFloat(e.target.value) : undefined,
-                )
-              }
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.exitPrice}
+              onChange={(e) => updateNum("exitPrice", e.target.value)}
+              onBlur={() => blurNum("exitPrice")}
               placeholder="Close price"
             />
           </div>
@@ -890,15 +960,22 @@ export function TradeRow({
             </div>
           </div>
           <div>
-            <div style={S.label}>R:R Achieved</div>
+            <div style={S.label}>R Achieved</div>
             <div
               style={{
                 fontFamily: "DM Mono",
                 fontSize: 13,
-                color: "var(--gold)",
+                color:
+                  trade.result === "WIN"
+                    ? "var(--green)"
+                    : trade.result === "LOSS"
+                      ? "var(--red)"
+                      : "var(--gold)",
               }}
             >
-              {trade.rrRatio ? `1:${trade.rrRatio}` : "—"}
+              {trade.rrRatio != null
+                ? `${trade.rrRatio > 0 ? "+" : ""}${trade.rrRatio}R`
+                : "—"}
             </div>
           </div>
           <div>
@@ -969,9 +1046,12 @@ export function Dashboard({
     .filter((t) => t.status === "CLOSED")
     .reduce((s, t) => s + (t.pnl || 0), 0);
   const balance = settings.accountBalance + totalPnl;
-  const maxDailyLoss = (settings.accountBalance * settings.maxDailyLoss) / 100;
-  const riskPerTrade = (settings.accountBalance * settings.riskPerTrade) / 100;
-  const dailyLossUsed = Math.abs(Math.min(todayPnl, 0));
+  const maxDailyLoss = (balance * settings.maxDailyLoss) / 100;
+  const riskPerTrade = (balance * settings.riskPerTrade) / 100;
+  const openTradeRisk = todayTrades
+    .filter((t) => t.status === "OPEN")
+    .reduce((s, t) => s + (t.riskAmount || 0), 0);
+  const dailyLossUsed = Math.abs(Math.min(todayPnl, 0)) + openTradeRisk;
   const dailyLossPct =
     maxDailyLoss > 0 ? (dailyLossUsed / maxDailyLoss) * 100 : 0;
   const suggestedLot = calcLotSize(
@@ -1019,7 +1099,12 @@ export function Dashboard({
   const avgLoss = losses.length
     ? losses.reduce((s, t) => s + (t.pnl || 0), 0) / losses.length
     : 0;
-  const profitFactor = avgLoss !== 0 ? Math.abs(avgWin / avgLoss) : 0;
+  const totalWinPnl = wins.reduce((s, t) => s + (t.pnl || 0), 0);
+  const totalLossPnl = Math.abs(
+    losses.reduce((s, t) => s + (t.pnl || 0), 0),
+  );
+  const profitFactor =
+    totalLossPnl !== 0 ? totalWinPnl / totalLossPnl : 0;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
@@ -1451,12 +1536,59 @@ export function CalculatorView({ settings }: { settings: Settings }) {
   const [direction, setDirection] = useState<TradeDirection>("BUY");
   const [slPips, setSlPips] = useState(15);
 
+  const [raw, setRaw] = useState({
+    balance: String(settings.accountBalance),
+    riskPct: String(settings.riskPerTrade),
+    rrRatio: String(settings.rrRatio),
+    slPips: String(15),
+  });
+
+  const updateNum = (
+    field: "balance" | "riskPct" | "rrRatio" | "slPips",
+    val: string,
+    setter: (n: number) => void,
+    fallback: number
+  ) => {
+    setRaw((prev) => ({ ...prev, [field]: val }));
+    if (val === "" || val === ".") {
+      setter(fallback);
+    } else {
+      const n = field === "slPips" ? parseInt(val) : parseFloat(val);
+      if (!Number.isNaN(n)) {
+        setter(n);
+      }
+    }
+  };
+
+  const blurNum = (
+    field: "balance" | "riskPct" | "rrRatio" | "slPips",
+    setter: (n: number) => void,
+    fallback: number
+  ) => {
+    const val = raw[field];
+    if (val === "" || val === "." || Number.isNaN(parseFloat(val))) {
+      setRaw((prev) => ({ ...prev, [field]: String(fallback) }));
+      setter(fallback);
+    } else {
+      const n = field === "slPips" ? parseInt(val) : parseFloat(val);
+      const normalized = Number.isNaN(n) ? fallback : n;
+      setRaw((prev) => ({ ...prev, [field]: String(normalized) }));
+      setter(normalized);
+    }
+  };
+
   const riskAmt = (balance * riskPct) / 100;
-  const suggestedLot = calcLotSize(balance, riskPct, slPips);
+  const suggestedLot =
+    slPips > 0 ? calcLotSize(balance, riskPct, slPips) : 0;
+  const actualRiskAmt =
+    slPips > 0 ? suggestedLot * slPips * PIP_VALUE_PER_001 * 100 : 0;
+  const actualRiskPct =
+    balance > 0 ? (actualRiskAmt / balance) * 100 : 0;
+  const overRisking = actualRiskPct > riskPct * 1.05;
   const rewardAmt = riskAmt * rrRatio;
   const minWinRate = Math.ceil(100 / (1 + rrRatio));
   const sltp =
-    entry && parseFloat(entry) > 0
+    entry && parseFloat(entry) > 0 && slPips > 0
       ? calcSLTP(parseFloat(entry), direction, suggestedLot, riskAmt, rrRatio)
       : null;
 
@@ -1485,52 +1617,57 @@ export function CalculatorView({ settings }: { settings: Settings }) {
             <label style={S.label}>Account Balance ($)</label>
             <input
               style={S.input}
-              type="number"
-              value={balance}
-              onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.balance}
+              onChange={(e) => updateNum("balance", e.target.value, setBalance, 0)}
+              onBlur={() => blurNum("balance", setBalance, 0)}
             />
           </div>
           <div>
             <label style={S.label}>Risk per trade (%)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.5"
-              min="0.5"
-              max="10"
-              value={riskPct}
-              onChange={(e) => setRiskPct(parseFloat(e.target.value) || 1)}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.riskPct}
+              onChange={(e) => updateNum("riskPct", e.target.value, setRiskPct, 1)}
+              onBlur={() => blurNum("riskPct", setRiskPct, 1)}
             />
           </div>
           <div>
             <label style={S.label}>R:R Ratio (1:?)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.5"
-              min="1"
-              max="10"
-              value={rrRatio}
-              onChange={(e) => setRrRatio(parseFloat(e.target.value) || 1)}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.rrRatio}
+              onChange={(e) => updateNum("rrRatio", e.target.value, setRrRatio, 1)}
+              onBlur={() => blurNum("rrRatio", setRrRatio, 1)}
             />
           </div>
           <div>
             <label style={S.label}>Stop Loss (pips)</label>
             <input
               style={S.input}
-              type="number"
-              min="5"
-              max="200"
-              value={slPips}
-              onChange={(e) => setSlPips(parseInt(e.target.value) || 15)}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.slPips}
+              onChange={(e) => updateNum("slPips", e.target.value, setSlPips, 15)}
+              onBlur={() => blurNum("slPips", setSlPips, 15)}
             />
           </div>
           <div>
             <label style={S.label}>Entry Price (optional)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
               value={entry}
               onChange={(e) => setEntry(e.target.value)}
               placeholder="e.g. 2315.50"
@@ -1577,6 +1714,17 @@ export function CalculatorView({ settings }: { settings: Settings }) {
             </div>
           </div>
         </div>
+
+        {slPips <= 0 && (
+          <div className="rounded-lg border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-[var(--red)]">
+            Stop loss must be greater than 0 pips.
+          </div>
+        )}
+        {overRisking && slPips > 0 && (
+          <div className="rounded-lg border border-[rgba(239,68,68,0.3)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-[var(--red)]">
+            <strong>Over-risking warning:</strong> With a {slPips}-pip stop on a 0.01 lot minimum, you will actually risk ${actualRiskAmt.toFixed(2)} ({actualRiskPct.toFixed(1)}% of balance) instead of your intended {riskPct}%. Consider widening your stop or accepting the higher risk.
+          </div>
+        )}
 
         <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
           {[
@@ -1757,10 +1905,12 @@ function PriceLevel({
 
 export function BalanceTracker({
   settings,
+  currentBalance,
   onSettingsUpdate,
   onToast,
 }: {
   settings: Settings;
+  currentBalance: number;
   onSettingsUpdate: (settings: Settings) => void;
   onToast: (toast: Toast) => void;
 }) {
@@ -1799,8 +1949,8 @@ export function BalanceTracker({
     const amt = parseFloat(amount);
     const balanceAfter =
       type === "DEPOSIT"
-        ? settings.accountBalance + amt
-        : Math.max(0, settings.accountBalance - amt);
+        ? currentBalance + amt
+        : Math.max(0, currentBalance - amt);
     const response = await fetch("/api/balance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1835,8 +1985,8 @@ export function BalanceTracker({
   const previewBalance =
     amount && parseFloat(amount) > 0
       ? type === "DEPOSIT"
-        ? settings.accountBalance + parseFloat(amount)
-        : Math.max(0, settings.accountBalance - parseFloat(amount))
+        ? currentBalance + parseFloat(amount)
+        : Math.max(0, currentBalance - parseFloat(amount))
       : null;
 
   return (
@@ -1846,7 +1996,7 @@ export function BalanceTracker({
           Current Balance
         </div>
         <div className="font-['DM_Mono',monospace] text-4xl font-extrabold text-[var(--gold)]">
-          ${settings.accountBalance.toFixed(2)}
+          ${currentBalance.toFixed(2)}
         </div>
       </div>
 
@@ -1905,8 +2055,9 @@ export function BalanceTracker({
             <label style={S.label}>Amount ($)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.01"
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
@@ -2063,9 +2214,9 @@ export function Analytics({ trades }: { trades: Trade[] }) {
         className="max-[640px]:!grid-cols-1"
       >
         <StatCard
-          label="Avg R:R"
-          value={`1:${avgRR.toFixed(2)}`}
-          color={avgRR >= 2 ? "var(--green)" : "var(--gold)"}
+          label="Avg R"
+          value={`${avgRR >= 0 ? "+" : ""}${avgRR.toFixed(2)}R`}
+          color={avgRR >= 0 ? "var(--green)" : "var(--red)"}
           icon={Target}
         />
         <StatCard
@@ -2369,8 +2520,74 @@ export function SettingsPanel({
 }) {
   const [form, setForm] = useState(settings);
   const [confirmReset, setConfirmReset] = useState(false);
+
+  const [raw, setRaw] = useState({
+    accountBalance: String(settings.accountBalance),
+    riskPerTrade: String(settings.riskPerTrade),
+    maxDailyLoss: String(settings.maxDailyLoss),
+    maxDailyTrades: String(settings.maxDailyTrades),
+    rrRatio: String(settings.rrRatio),
+  });
+
+  useEffect(() => {
+    setForm(settings);
+    setRaw({
+      accountBalance: String(settings.accountBalance),
+      riskPerTrade: String(settings.riskPerTrade),
+      maxDailyLoss: String(settings.maxDailyLoss),
+      maxDailyTrades: String(settings.maxDailyTrades),
+      rrRatio: String(settings.rrRatio),
+    });
+  }, [settings]);
+
+  const updateNum = (field: keyof typeof raw, val: string) => {
+    setRaw((prev) => ({ ...prev, [field]: val }));
+    if (val === "" || val === ".") {
+      if (field === "maxDailyTrades") {
+        set(field, 0);
+      } else {
+        set(field, 0);
+      }
+    } else {
+      const n = field === "maxDailyTrades" ? parseInt(val) : parseFloat(val);
+      if (!Number.isNaN(n)) {
+        set(field, n);
+      }
+    }
+  };
+
+  const blurNum = (field: keyof typeof raw) => {
+    const val = raw[field];
+    if (val === "" || val === "." || Number.isNaN(parseFloat(val))) {
+      setRaw((prev) => ({ ...prev, [field]: "0" }));
+      set(field, 0);
+    } else {
+      const n = field === "maxDailyTrades" ? parseInt(val) : parseFloat(val);
+      const normalized = Number.isNaN(n) ? 0 : n;
+      setRaw((prev) => ({ ...prev, [field]: String(normalized) }));
+      set(field, normalized);
+    }
+  };
+
   const set = (k: keyof Settings, v: unknown) =>
-    setForm((p) => ({ ...p, [k]: v }));
+    setForm((p) => {
+      const next = { ...p, [k]: v } as Settings;
+      // Auto-calculate risk settings only when transitioning from zero balance
+      if (
+        k === "accountBalance" &&
+        typeof v === "number" &&
+        v > 0 &&
+        p.accountBalance === 0
+      ) {
+        if (next.riskPerTrade === 0) next.riskPerTrade = 2;
+        if (next.maxDailyLoss === 0) next.maxDailyLoss = 6;
+        if (next.maxDailyTrades === 0)
+          next.maxDailyTrades = Math.floor(
+            next.maxDailyLoss / next.riskPerTrade,
+          );
+      }
+      return next;
+    });
   const riskAmt = ((form.accountBalance * form.riskPerTrade) / 100).toFixed(2);
   const dailyLossAmt = (
     (form.accountBalance * form.maxDailyLoss) /
@@ -2414,21 +2631,24 @@ export function SettingsPanel({
             <label style={S.label}>Account Balance ($)</label>
             <input
               style={S.input}
-              type="number"
-              value={form.accountBalance}
-              onChange={(e) =>
-                set("accountBalance", parseFloat(e.target.value))
-              }
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.accountBalance}
+              onChange={(e) => updateNum("accountBalance", e.target.value)}
+              onBlur={() => blurNum("accountBalance")}
             />
           </div>
           <div>
             <label style={S.label}>Risk per trade (%)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.5"
-              value={form.riskPerTrade}
-              onChange={(e) => set("riskPerTrade", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.riskPerTrade}
+              onChange={(e) => updateNum("riskPerTrade", e.target.value)}
+              onBlur={() => blurNum("riskPerTrade")}
             />
             <div style={{ fontSize: 12, color: "var(--gold)", marginTop: 4 }}>
               = ${riskAmt} per trade
@@ -2438,10 +2658,12 @@ export function SettingsPanel({
             <label style={S.label}>Max daily loss (%)</label>
             <input
               style={S.input}
-              type="number"
-              step="0.5"
-              value={form.maxDailyLoss}
-              onChange={(e) => set("maxDailyLoss", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.maxDailyLoss}
+              onChange={(e) => updateNum("maxDailyLoss", e.target.value)}
+              onBlur={() => blurNum("maxDailyLoss")}
             />
             <div style={{ fontSize: 12, color: "var(--red)", marginTop: 4 }}>
               = ${dailyLossAmt} daily cap
@@ -2451,19 +2673,24 @@ export function SettingsPanel({
             <label style={S.label}>Max daily trades</label>
             <input
               style={S.input}
-              type="number"
-              value={form.maxDailyTrades}
-              onChange={(e) => set("maxDailyTrades", parseInt(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.maxDailyTrades}
+              onChange={(e) => updateNum("maxDailyTrades", e.target.value)}
+              onBlur={() => blurNum("maxDailyTrades")}
             />
           </div>
           <div>
             <label style={S.label}>Target R:R ratio</label>
             <input
               style={S.input}
-              type="number"
-              step="0.5"
-              value={form.rrRatio}
-              onChange={(e) => set("rrRatio", parseFloat(e.target.value))}
+              onWheel={(e) => e.currentTarget.blur()}
+              type="text"
+              inputMode="decimal"
+              value={raw.rrRatio}
+              onChange={(e) => updateNum("rrRatio", e.target.value)}
+              onBlur={() => blurNum("rrRatio")}
             />
           </div>
         </div>
@@ -2547,8 +2774,8 @@ export function SettingsPanel({
           Danger Zone
         </h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          This permanently deletes all trades and balance history. Your settings
-          are kept.
+          This permanently deletes all trades, balance history, and resets
+          settings to defaults.
         </p>
         {!confirmReset ? (
           <button
@@ -2588,14 +2815,14 @@ export function SettingsPanel({
 export function useTradingJournal() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [settings, setSettings] = useState<Settings>({
-    accountBalance: 500,
-    riskPerTrade: 2,
-    maxDailyLoss: 6,
-    maxDailyTrades: 3,
+    accountBalance: 0,
+    riskPerTrade: 0,
+    maxDailyLoss: 0,
+    maxDailyTrades: 0,
     rrRatio: 2,
-    currency: "USD",
+    currency: "",
     broker: "",
-    tradingName: "Gold Trader",
+    tradingName: "",
   });
   const [showForm, setShowForm] = useState(false);
   const [editTrade, setEditTrade] = useState<Trade | undefined>();
@@ -2687,7 +2914,11 @@ export function useTradingJournal() {
       return;
     }
     await load();
-    setToast({ message: "Trades and balance history reset.", tone: "success" });
+    setFilterStatus("ALL");
+    setSearchText("");
+    setShowForm(false);
+    setEditTrade(undefined);
+    setToast({ message: "All data has been reset.", tone: "success" });
   };
 
   const filteredTrades = trades.filter((t) => {

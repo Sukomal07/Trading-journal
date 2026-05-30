@@ -28,6 +28,12 @@ export default function CalculatorPage() {
         <CalculatorView settings={journal.settings} />
         <BalanceTracker
           settings={journal.settings}
+          currentBalance={
+            journal.settings.accountBalance +
+            journal.trades
+              .filter((t) => t.status === "CLOSED")
+              .reduce((s, t) => s + (t.pnl || 0), 0)
+          }
           onSettingsUpdate={journal.updateSettings}
           onToast={journal.setToast}
         />
