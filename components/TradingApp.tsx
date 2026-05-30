@@ -631,6 +631,7 @@ function TradeForm({
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   justifyContent: "space-between",
                   alignItems: "center",
                   gap: 12,
@@ -776,6 +777,7 @@ function TradeForm({
         <div
           style={{
             display: "flex",
+            flexWrap: "wrap",
             gap: 12,
             marginTop: 28,
             justifyContent: "flex-end",
@@ -912,7 +914,7 @@ export function TradeRow({
             {trade.status === "OPEN" ? "OPEN" : trade.result || "BE"}
           </span>
         </div>
-        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+        <div style={{ fontSize: 11, color: "var(--text-muted)" }} className="break-words">
           {trade.setup}
         </div>
         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -1016,6 +1018,7 @@ export function TradeRow({
                   color: "var(--text-muted)",
                   lineHeight: 1.6,
                 }}
+                className="break-words"
               >
                 {trade.notes}
               </div>
@@ -1203,7 +1206,7 @@ export function Dashboard({
       </div>
 
       {/* Daily limits */}
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div
           style={{
             fontSize: 13,
@@ -1349,7 +1352,7 @@ export function Dashboard({
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
         className="max-[900px]:!grid-cols-1"
       >
-        <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
           <div
             style={{
               fontSize: 13,
@@ -1403,7 +1406,7 @@ export function Dashboard({
             </AreaChart>
           </ResponsiveContainer>
         </div>
-        <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
           <div
             style={{
               fontSize: 13,
@@ -1452,7 +1455,7 @@ export function Dashboard({
       </div>
 
       {/* Recent trades */}
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div
           style={{
             fontSize: 13,
@@ -1470,13 +1473,19 @@ export function Dashboard({
             key={t.id}
             style={{
               display: "flex",
+              flexWrap: "wrap",
               justifyContent: "space-between",
               alignItems: "center",
               padding: "10px 0",
               borderBottom: "1px solid var(--border-dim)",
+              gap: "8px",
             }}
+            className="max-[640px]:!items-start"
           >
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div
+              style={{ display: "flex", gap: 12, alignItems: "center" }}
+              className="max-[640px]:!flex-col max-[640px]:!items-start max-[640px]:!gap-1"
+            >
               <span
                 style={{
                   color: t.direction === "BUY" ? "var(--green)" : "var(--red)",
@@ -1594,7 +1603,7 @@ export function CalculatorView({ settings }: { settings: Settings }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ ...S.goldCard, padding: 24 }}>
+      <div style={{ ...S.goldCard, padding: 24 }} className="max-[640px]:!p-4">
         <div
           style={{
             fontSize: 13,
@@ -1758,7 +1767,7 @@ export function CalculatorView({ settings }: { settings: Settings }) {
       </div>
 
       {sltp && (
-        <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
           <div
             style={{
               fontSize: 13,
@@ -1814,7 +1823,7 @@ export function CalculatorView({ settings }: { settings: Settings }) {
         </div>
       )}
 
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div
           style={{
             fontSize: 13,
@@ -1906,11 +1915,13 @@ function PriceLevel({
 export function BalanceTracker({
   settings,
   currentBalance,
+  accountType,
   onSettingsUpdate,
   onToast,
 }: {
   settings: Settings;
   currentBalance: number;
+  accountType: import("@/lib/types").AccountType;
   onSettingsUpdate: (settings: Settings) => void;
   onToast: (toast: Toast) => void;
 }) {
@@ -1921,15 +1932,15 @@ export function BalanceTracker({
   const [loading, setLoading] = useState(false);
 
   const loadHistory = useCallback(async () => {
-    const response = await fetch("/api/balance");
+    const response = await fetch(`/api/balance?accountType=${accountType}`);
     const data = await response.json();
     setHistory(data);
-  }, []);
+  }, [accountType]);
 
   useEffect(() => {
     let mounted = true;
 
-    fetch("/api/balance")
+    fetch(`/api/balance?accountType=${accountType}`)
       .then((response) => response.json())
       .then((data) => {
         if (mounted) setHistory(data);
@@ -1941,7 +1952,7 @@ export function BalanceTracker({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [accountType]);
 
   const submit = async () => {
     if (!amount || parseFloat(amount) <= 0) return;
@@ -1954,7 +1965,7 @@ export function BalanceTracker({
     const response = await fetch("/api/balance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, amount: amt, note, balanceAfter }),
+      body: JSON.stringify({ type, amount: amt, note, balanceAfter, accountType }),
     });
     const data = await response.json();
     if (response.ok) {
@@ -1991,7 +2002,7 @@ export function BalanceTracker({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ ...S.goldCard, padding: 24 }}>
+      <div style={{ ...S.goldCard, padding: 24 }} className="max-[640px]:!p-4">
         <div className="mb-1 text-[11px] uppercase tracking-[0.08em] text-[rgba(212,168,67,0.6)]">
           Current Balance
         </div>
@@ -2000,7 +2011,7 @@ export function BalanceTracker({
         </div>
       </div>
 
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
           Record Deposit / Withdrawal
         </div>
@@ -2099,7 +2110,7 @@ export function BalanceTracker({
         </button>
       </div>
 
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
           Transaction History
         </div>
@@ -2111,15 +2122,15 @@ export function BalanceTracker({
         {[...history].reverse().map((entry) => (
           <div
             key={entry.id}
-            className="flex items-center justify-between gap-3 border-b border-[var(--border-dim)] py-2.5"
+            className="flex items-center justify-between gap-3 border-b border-[var(--border-dim)] py-2.5 max-[640px]:flex-wrap max-[640px]:gap-y-1"
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
               {entry.type === "DEPOSIT" ? (
                 <ArrowUpCircle size={16} color="var(--green)" />
               ) : (
                 <ArrowDownCircle size={16} color="var(--red)" />
               )}
-              <div>
+              <div className="min-w-0">
                 <div
                   style={{
                     fontSize: 13,
@@ -2130,7 +2141,7 @@ export function BalanceTracker({
                 >
                   {entry.type === "DEPOSIT" ? "+" : "-"}${entry.amount.toFixed(2)}
                 </div>
-                <div className="text-[11px] text-[var(--text-muted)]">
+                <div className="break-words text-[11px] text-[var(--text-muted)]">
                   {entry.date}
                   {entry.note ? ` · ${entry.note}` : ""}
                 </div>
@@ -2255,7 +2266,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
         style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
         className="max-[900px]:!grid-cols-1"
       >
-        <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
           <div
             style={{
               fontSize: 13,
@@ -2310,7 +2321,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
           )}
         </div>
 
-        <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
           <div
             style={{
               fontSize: 13,
@@ -2359,7 +2370,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
       </div>
 
       {/* Setup performance */}
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div
           style={{
             fontSize: 13,
@@ -2384,9 +2395,11 @@ export function Analytics({ trades }: { trades: Trade[] }) {
                 padding: "10px 0",
                 borderBottom: "1px solid var(--border-dim)",
               }}
-              className="max-[900px]:!grid-cols-2 max-[640px]:!grid-cols-1"
+              className="max-[900px]:!grid-cols-1 max-[900px]:!gap-1.5 max-[900px]:!border-b-0 max-[900px]:rounded-lg max-[900px]:border max-[900px]:border-[var(--border-dim)] max-[900px]:bg-[var(--bg-panel)] max-[900px]:p-3 max-[640px]:!gap-2"
             >
-              <div style={{ fontSize: 13 }}>{s.setup}</div>
+              <div style={{ fontSize: 13 }} className="break-words">
+                {s.setup}
+              </div>
               <div
                 style={{
                   height: 6,
@@ -2439,7 +2452,7 @@ export function Analytics({ trades }: { trades: Trade[] }) {
       </div>
 
       {/* Emotion stats */}
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <div
           style={{
             fontSize: 13,
@@ -2540,6 +2553,10 @@ export function SettingsPanel({
     });
   }, [settings]);
 
+  const accountLabel = settings.accountType === "REAL" ? "Real Account" : "Demo Account";
+  const accountColor = settings.accountType === "REAL" ? "var(--green)" : "var(--blue)";
+  const accountBg = settings.accountType === "REAL" ? "rgba(34,197,94,0.1)" : "rgba(96,165,250,0.1)";
+
   const updateNum = (field: keyof typeof raw, val: string) => {
     setRaw((prev) => ({ ...prev, [field]: val }));
     if (val === "" || val === ".") {
@@ -2602,10 +2619,26 @@ export function SettingsPanel({
         gap: 24
       }}
     >
-      <div style={{ ...S.card, padding: 32 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 24 }}>
-          Account Settings
-        </h2>
+      <div style={{ ...S.card, padding: 32 }} className="max-[640px]:!p-5">
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>
+            Account Settings
+          </h2>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              padding: "3px 10px",
+              borderRadius: 4,
+              background: accountBg,
+              color: accountColor,
+            }}
+          >
+            {accountLabel}
+          </span>
+        </div>
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
           className="max-[640px]:!grid-cols-1"
@@ -2713,7 +2746,7 @@ export function SettingsPanel({
         </div>
       </div>
 
-      <div style={{ ...S.card, padding: 24 }}>
+      <div style={{ ...S.card, padding: 24 }} className="max-[640px]:!p-4">
         <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>
           Risk Rules Reminder
         </h3>
@@ -2762,6 +2795,7 @@ export function SettingsPanel({
           padding: 24,
           border: "1px solid rgba(239,68,68,0.2)",
         }}
+        className="max-[640px]:!p-4"
       >
         <h3
           style={{
@@ -2774,8 +2808,8 @@ export function SettingsPanel({
           Danger Zone
         </h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-          This permanently deletes all trades, balance history, and resets
-          settings to defaults.
+          This permanently deletes all {accountLabel.toLowerCase()} trades, balance history, and resets
+          settings to defaults. Your other account data will remain untouched.
         </p>
         {!confirmReset ? (
           <button
@@ -2811,150 +2845,63 @@ export function SettingsPanel({
   );
 }
 
-// ─── Shared App State ────────────────────────────────────────────────────────
-export function useTradingJournal() {
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [settings, setSettings] = useState<Settings>({
-    accountBalance: 0,
-    riskPerTrade: 0,
-    maxDailyLoss: 0,
-    maxDailyTrades: 0,
-    rrRatio: 2,
-    currency: "",
-    broker: "",
-    tradingName: "",
-  });
-  const [showForm, setShowForm] = useState(false);
-  const [editTrade, setEditTrade] = useState<Trade | undefined>();
-  const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [searchText, setSearchText] = useState("");
-  const [toast, setToast] = useState<Toast | null>(null);
+// Re-export the shared hook from the provider so imports continue to work
+export { useTradingJournal } from "./TradingJournalProvider";
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch("/api/trades");
-      const data = await r.json();
-      setTrades(data.trades || []);
-      setSettings(data.settings);
-    } catch {
-      /* ignore */
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    fetch("/api/trades")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!mounted) return;
-        setTrades(data.trades || []);
-        setSettings(data.settings);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const saveTrade = async (form: Partial<Trade>) => {
-    if (editTrade) {
-      await fetch("/api/trades", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...editTrade, ...form }),
-      });
-    } else {
-      await fetch("/api/trades", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-    }
-    setShowForm(false);
-    setEditTrade(undefined);
-    load();
-  };
-
-  const deleteTrade = async (id: string) => {
-    if (!confirm("Delete this trade?")) return;
-    await fetch(`/api/trades?id=${id}`, { method: "DELETE" });
-    load();
-  };
-
-  const saveSettings = async (s: Settings) => {
-    const response = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(s),
-    });
-    if (!response.ok) {
-      setToast({ message: "Could not save settings.", tone: "error" });
-      return;
-    }
-    setSettings(s);
-    setToast({ message: "Settings saved.", tone: "success" });
-  };
-
-  const updateSettings = (nextSettings: Settings) => {
-    setSettings(nextSettings);
-  };
-
-  const resetAll = async () => {
-    const response = await fetch("/api/reset", { method: "POST" });
-    if (!response.ok) {
-      setToast({ message: "Could not reset journal data.", tone: "error" });
-      return;
-    }
-    await load();
-    setFilterStatus("ALL");
-    setSearchText("");
-    setShowForm(false);
-    setEditTrade(undefined);
-    setToast({ message: "All data has been reset.", tone: "success" });
-  };
-
-  const filteredTrades = trades.filter((t) => {
-    if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
-    if (
-      searchText &&
-      ![t.symbol, t.setup, t.notes, t.session, t.emotion, ...(t.tags || [])]
-        .join(" ")
-        .toLowerCase()
-        .includes(searchText.toLowerCase())
-    )
-      return false;
-    return true;
-  });
-
-  return {
-    trades,
-    settings,
-    showForm,
-    editTrade,
-    loading,
-    toast,
-    filterStatus,
-    searchText,
-    filteredTrades,
-    setShowForm,
-    setEditTrade,
-    setFilterStatus,
-    setSearchText,
-    setToast,
-    saveTrade,
-    deleteTrade,
-    saveSettings,
-    updateSettings,
-    resetAll,
-  };
+// ─── Account Switcher ────────────────────────────────────────────────────────
+function AccountSwitcher({
+  accountType,
+  onChange,
+}: {
+  accountType: import("@/lib/types").AccountType;
+  onChange: (type: import("@/lib/types").AccountType) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "3px",
+        background: "var(--bg-panel)",
+        borderRadius: 8,
+        border: "1px solid var(--border-dim)",
+        flexShrink: 0,
+      }}
+    >
+      {(["REAL", "DEMO"] as const).map((type) => (
+        <button
+          key={type}
+          onClick={() => onChange(type)}
+          style={{
+            padding: "5px 12px",
+            borderRadius: 6,
+            border: "none",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase" as const,
+            cursor: "pointer",
+            fontFamily: "Syne,sans-serif",
+            background:
+              accountType === type
+                ? type === "REAL"
+                  ? "rgba(34,197,94,0.15)"
+                  : "rgba(96,165,250,0.15)"
+                : "transparent",
+            color:
+              accountType === type
+                ? type === "REAL"
+                  ? "var(--green)"
+                  : "var(--blue)"
+                : "var(--text-muted)",
+          }}
+        >
+          {type === "REAL" ? "Real" : "Demo"}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 // ─── Shared Page Shell ───────────────────────────────────────────────────────
@@ -2962,6 +2909,8 @@ export function TradingPageShell({
   activeView,
   trades,
   settings,
+  accountType,
+  setAccountType,
   loading,
   toast,
   showForm,
@@ -2975,6 +2924,8 @@ export function TradingPageShell({
   activeView: View;
   trades: Trade[];
   settings: Settings;
+  accountType: import("@/lib/types").AccountType;
+  setAccountType: (type: import("@/lib/types").AccountType) => void;
   loading: boolean;
   toast: Toast | null;
   showForm: boolean;
@@ -3073,14 +3024,14 @@ export function TradingPageShell({
             </div>
           </div>
           <nav
-            style={{ display: "flex", gap: 4, marginLeft: 24 }}
-            className="max-[900px]:!ml-0 max-[900px]:!w-full max-[900px]:overflow-x-auto max-[900px]:pb-0.5"
+            style={{ display: "flex", gap: 4 }}
+            className="max-[900px]:!w-full max-[900px]:flex-wrap"
           >
             {navItems.map(({ id, label, icon: Icon }) => (
               <Link
                 key={id}
                 href={`/${id}`}
-                className="max-[900px]:flex-none max-[900px]:whitespace-nowrap"
+                className="max-[900px]:flex-1 max-[900px]:text-center"
                 style={{
                   ...S.btn,
                   padding: "7px 16px",
@@ -3100,9 +3051,39 @@ export function TradingPageShell({
             ))}
           </nav>
         </div>
+      </header>
+
+      {/* Sub-header: Account & Actions */}
+      <div
+        style={{
+          position: "sticky",
+          top: 60,
+          zIndex: 40,
+          borderBottom: "1px solid var(--border)",
+          background: "rgba(10,10,11,0.9)",
+          backdropFilter: "blur(12px)",
+          padding: "10px 32px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+        className="max-[900px]:!px-4 max-[900px]:!py-2.5 max-[900px]:!flex-col max-[900px]:!gap-2.5 max-[900px]:!items-stretch"
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <AccountSwitcher accountType={accountType} onChange={setAccountType} />
+          <span
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {accountType === "REAL" ? "Real Account" : "Demo Account"}
+          </span>
+        </div>
         <div
           style={{ display: "flex", gap: 10, alignItems: "center" }}
-          className="max-[900px]:!w-full max-[900px]:!justify-between max-[640px]:!items-stretch max-[640px]:!flex-col"
+          className="max-[900px]:!w-full max-[900px]:!justify-between"
         >
           <span
             style={{
@@ -3110,7 +3091,6 @@ export function TradingPageShell({
               fontSize: 13,
               color: "var(--text-muted)",
             }}
-            className="max-[640px]:w-full max-[640px]:justify-center"
           >
             Balance:{" "}
             <span style={{ color: "var(--gold)" }}>
@@ -3140,7 +3120,7 @@ export function TradingPageShell({
             <Plus size={15} /> Log Trade
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Main */}
       <main

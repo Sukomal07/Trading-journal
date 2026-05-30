@@ -16,6 +16,8 @@ export default function JournalPage() {
       activeView="journal"
       trades={journal.trades}
       settings={journal.settings}
+      accountType={journal.accountType}
+      setAccountType={journal.setAccountType}
       loading={journal.loading}
       toast={journal.toast}
       showForm={journal.showForm}
@@ -117,6 +119,7 @@ export default function JournalPage() {
               textAlign: "center",
               color: "var(--text-muted)",
             }}
+            className="max-[640px]:!p-6"
           >
             <BookOpen
               size={40}

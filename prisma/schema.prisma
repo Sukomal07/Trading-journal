@@ -42,6 +42,11 @@ enum Emotion {
   CALM
 }
 
+enum AccountType {
+  REAL
+  DEMO
+}
+
 enum BalanceEntryType {
   DEPOSIT
   WITHDRAWAL
@@ -49,6 +54,7 @@ enum BalanceEntryType {
 
 model Trade {
   id           String        @id
+  accountType  AccountType   @default(REAL)
   date         String
   time         String
   symbol       String
@@ -76,7 +82,8 @@ model Trade {
 }
 
 model Settings {
-  id             String @id @default("default")
+  id             String      @id
+  accountType    AccountType
   accountBalance Float
   riskPerTrade   Float
   maxDailyLoss   Float
@@ -89,6 +96,7 @@ model Settings {
 
 model BalanceEntry {
   id           String           @id
+  accountType  AccountType      @default(REAL)
   type         BalanceEntryType
   amount       Float
   note         String

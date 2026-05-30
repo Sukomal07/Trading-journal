@@ -14,6 +14,8 @@ export default function AnalyticsPage() {
       activeView="analytics"
       trades={journal.trades}
       settings={journal.settings}
+      accountType={journal.accountType}
+      setAccountType={journal.setAccountType}
       loading={journal.loading}
       toast={journal.toast}
       showForm={journal.showForm}

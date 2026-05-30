@@ -1,9 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { TradingJournalProvider } from "@/components/TradingJournalProvider";
 
 export const metadata: Metadata = {
   title: "Gold Journal — Forex Trading Tracker",
   description: "Professional trading journal for XAUUSD gold traders",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -26,7 +32,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-['Syne',sans-serif] antialiased">
-        {children}
+        <TradingJournalProvider>{children}</TradingJournalProvider>
       </body>
     </html>
   );

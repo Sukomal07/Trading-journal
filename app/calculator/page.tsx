@@ -15,6 +15,8 @@ export default function CalculatorPage() {
       activeView="calculator"
       trades={journal.trades}
       settings={journal.settings}
+      accountType={journal.accountType}
+      setAccountType={journal.setAccountType}
       loading={journal.loading}
       toast={journal.toast}
       showForm={journal.showForm}
@@ -34,6 +36,7 @@ export default function CalculatorPage() {
               .filter((t) => t.status === "CLOSED")
               .reduce((s, t) => s + (t.pnl || 0), 0)
           }
+          accountType={journal.accountType}
           onSettingsUpdate={journal.updateSettings}
           onToast={journal.setToast}
         />

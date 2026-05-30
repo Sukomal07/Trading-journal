@@ -7,7 +7,7 @@ import {
   updateTrade,
   deleteTrade,
 } from "@/lib/db";
-import { Trade } from "@/lib/types";
+import { Trade, AccountType } from "@/lib/types";
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -51,12 +51,18 @@ function validateTrade(body: Partial<Trade>): string | null {
   return null;
 }
 
+function parseAccountType(searchParams: URLSearchParams): AccountType {
+  const type = searchParams.get("accountType");
+  return type === "DEMO" ? "DEMO" : "REAL";
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || undefined;
   const date = searchParams.get("date") || undefined;
-  const trades = await getTrades(status, date);
-  const settings = await getSettings();
+  const accountType = parseAccountType(searchParams);
+  const trades = await getTrades(accountType, status, date);
+  const settings = await getSettings(accountType);
   return NextResponse.json({ trades, settings });
 }
 
@@ -67,8 +73,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
   const now = new Date().toISOString();
+  const accountType: AccountType = body.accountType === "DEMO" ? "DEMO" : "REAL";
   let trade: Trade = {
     ...body,
+    accountType,
     id: generateId(),
     createdAt: now,
     updatedAt: now,
@@ -89,9 +97,11 @@ export async function PUT(req: NextRequest) {
   const existing = await getTradeById(body.id);
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const accountType: AccountType = body.accountType === "DEMO" ? "DEMO" : "REAL";
   let updated: Trade = {
     ...existing,
     ...body,
+    accountType,
     updatedAt: new Date().toISOString(),
     status: body.exitPrice ? "CLOSED" : "OPEN",
   };

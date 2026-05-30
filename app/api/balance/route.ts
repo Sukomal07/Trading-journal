@@ -7,22 +7,31 @@ import {
   getBalanceEntryById,
   deleteBalanceEntry,
 } from "@/lib/db";
-import { BalanceEntry } from "@/lib/types";
+import { BalanceEntry, AccountType } from "@/lib/types";
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
-export async function GET() {
-  const history = await getBalanceHistory();
+function parseAccountType(searchParams: URLSearchParams): AccountType {
+  const type = searchParams.get("accountType");
+  return type === "DEMO" ? "DEMO" : "REAL";
+}
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const accountType = parseAccountType(searchParams);
+  const history = await getBalanceHistory(accountType);
   return NextResponse.json(history);
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  const accountType: AccountType = body.accountType === "DEMO" ? "DEMO" : "REAL";
   const now = new Date().toISOString();
   const entry: BalanceEntry = {
     id: generateId(),
+    accountType,
     type: body.type,
     amount: Number(body.amount),
     note: body.note || "",
@@ -33,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   await createBalanceEntry(entry);
 
-  const settings = await getSettings();
+  const settings = await getSettings(accountType);
   settings.accountBalance = entry.balanceAfter;
   await saveSettings(settings);
 
@@ -54,7 +63,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const settings = await getSettings();
+  const settings = await getSettings(entry.accountType);
   const adjustedBalance =
     entry.type === "DEPOSIT"
       ? settings.accountBalance - entry.amount

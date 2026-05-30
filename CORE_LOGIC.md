@@ -6,20 +6,50 @@ This document outlines the key business rules, formulas, and data flows that pow
 
 ## Table of Contents
 
-1. [Trade Profit & Loss (P&L) Calculation](#1-trade-profit--loss-pnl-calculation)
-2. [Risk & Lot Size Calculation](#2-risk--lot-size-calculation)
-3. [Auto-Suggested Stop Loss / Take Profit](#3-auto-suggested-stop-loss--take-profit)
-4. [Settings Auto-Calculation](#4-settings-auto-calculation)
-5. [Balance & Equity Tracking](#5-balance--equity-tracking)
-6. [Daily Risk Management (Kill Switch)](#6-daily-risk-management-kill-switch)
-7. [Performance Statistics](#7-performance-statistics)
-8. [Data Models](#8-data-models)
-9. [Validation Rules](#9-validation-rules)
-10. [File Reference](#10-file-reference)
+1. [Account Types (Real & Demo)](#1-account-types-real--demo)
+2. [Trade Profit & Loss (P&L) Calculation](#2-trade-profit--loss-pnl-calculation)
+3. [Risk & Lot Size Calculation](#3-risk--lot-size-calculation)
+4. [Auto-Suggested Stop Loss / Take Profit](#4-auto-suggested-stop-loss--take-profit)
+5. [Settings Auto-Calculation](#5-settings-auto-calculation)
+6. [Balance & Equity Tracking](#6-balance--equity-tracking)
+7. [Daily Risk Management (Kill Switch)](#7-daily-risk-management-kill-switch)
+8. [Performance Statistics](#8-performance-statistics)
+9. [Data Models](#9-data-models)
+10. [Validation Rules](#10-validation-rules)
+11. [File Reference](#11-file-reference)
 
 ---
 
-## 1. Trade Profit & Loss (P&L) Calculation
+## 1. Account Types (Real & Demo)
+
+**Source:** `components/TradingApp.tsx` (AccountSwitcher), `lib/db.ts`
+
+The journal supports two completely isolated account environments:
+
+| Account | Purpose | Visual Indicator |
+|---------|---------|------------------|
+| **REAL** | Live funded trading | Green badge |
+| **DEMO** | Practice / backtesting | Blue badge |
+
+### How It Works
+
+- Every `Trade`, `BalanceEntry`, and `Settings` record is tagged with an `accountType` (`REAL` or `DEMO`).
+- The `Settings` table uses `id: "real"` and `id: "demo"` instead of a single `"default"` row.
+- Switching accounts in the UI triggers a full reload of trades, settings, and balance history for that account type.
+- The selected account type is persisted in `localStorage` as `goldjournal_accountType`.
+- Resetting data only clears the **currently active** account; the other account remains untouched.
+
+### API Behavior
+
+All API routes accept an `accountType` query parameter or body field:
+- `GET /api/trades?accountType=DEMO`
+- `GET /api/settings?accountType=DEMO`
+- `GET /api/balance?accountType=DEMO`
+- `POST /api/reset?accountType=DEMO`
+
+---
+
+## 2. Trade Profit & Loss (P&L) Calculation
 
 **Source:** `app/api/trades/route.ts` (function `calcPnl`)
 
@@ -44,7 +74,7 @@ When a trade is created or updated with an `exitPrice`, the server automatically
 
 ---
 
-## 2. Risk & Lot Size Calculation
+## 3. Risk & Lot Size Calculation
 
 **Source:** `components/TradingApp.tsx` (function `calcLotSize`)
 
@@ -58,7 +88,7 @@ The calculator ensures the lot size never goes below `0.01` and is always rounde
 
 ---
 
-## 3. Auto-Suggested Stop Loss / Take Profit
+## 4. Auto-Suggested Stop Loss / Take Profit
 
 **Source:** `components/TradingApp.tsx` (function `calcSLTP`)
 
@@ -77,7 +107,7 @@ All prices are rounded to 2 decimal places.
 
 ---
 
-## 4. Settings Auto-Calculation
+## 5. Settings Auto-Calculation
 
 **Source:** `lib/db.ts` (function `calcSettingsFromBalance`)
 
@@ -91,7 +121,7 @@ If the user sets an `accountBalance > 0` but leaves risk settings at zero, the s
 
 ---
 
-## 5. Balance & Equity Tracking
+## 6. Balance & Equity Tracking
 
 **Source:** `app/api/balance/route.ts`
 
@@ -126,7 +156,7 @@ equityPoints = [
 
 ---
 
-## 6. Daily Risk Management (Kill Switch)
+## 7. Daily Risk Management (Kill Switch)
 
 **Source:** `components/TradingApp.tsx` (Dashboard component)
 
@@ -151,7 +181,7 @@ This prevents emotional overtrading and enforces the user's pre-defined risk pla
 
 ---
 
-## 7. Performance Statistics
+## 8. Performance Statistics
 
 **Source:** `components/TradingApp.tsx` (Dashboard component)
 
@@ -177,7 +207,7 @@ All dashboard stats are derived from closed trades (`status === "CLOSED"`).
 
 ---
 
-## 8. Data Models
+## 9. Data Models
 
 **Source:** `prisma/schema.prisma`
 
@@ -186,6 +216,7 @@ All dashboard stats are derived from closed trades (`status === "CLOSED"`).
 | Field | Type | Constraints |
 |-------|------|-------------|
 | `id` | `String` | Primary key |
+| `accountType` | `AccountType` | `REAL` or `DEMO` |
 | `date` | `String` | ISO date (YYYY-MM-DD) |
 | `time` | `String` | HH:MM format |
 | `symbol` | `String` | e.g. "XAUUSD" |
@@ -211,11 +242,12 @@ All dashboard stats are derived from closed trades (`status === "CLOSED"`).
 | `createdAt` | `String` | ISO timestamp |
 | `updatedAt` | `String` | ISO timestamp |
 
-### Settings (Singleton)
+### Settings (One per Account)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | `String` | Fixed: `"default"` |
+| `id` | `String` | `"real"` or `"demo"` |
+| `accountType` | `AccountType` | `REAL` or `DEMO` |
 | `accountBalance` | `Float` | Current account equity |
 | `riskPerTrade` | `Float` | `%` of balance risked per trade |
 | `maxDailyLoss` | `Float` | `%` of balance max daily drawdown |
@@ -230,6 +262,7 @@ All dashboard stats are derived from closed trades (`status === "CLOSED"`).
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | `String` | Primary key |
+| `accountType` | `AccountType` | `REAL` or `DEMO` |
 | `type` | `BalanceEntryType` | `DEPOSIT` or `WITHDRAWAL` |
 | `amount` | `Float` | Transaction amount |
 | `note` | `String` | Optional memo |
@@ -239,7 +272,7 @@ All dashboard stats are derived from closed trades (`status === "CLOSED"`).
 
 ---
 
-## 9. Validation Rules
+## 10. Validation Rules
 
 **Source:** `app/api/trades/route.ts` (function `validateTrade`)
 
@@ -258,10 +291,11 @@ A trade POST/PUT request is rejected (`400 Bad Request`) if any of the following
 
 ---
 
-## 10. File Reference
+## 11. File Reference
 
 | Concern | File(s) |
 |---------|---------|
+| Account Type Switching | `components/TradingApp.tsx` (AccountSwitcher), `components/TradingJournalProvider.tsx` |
 | P&L Calculation | `app/api/trades/route.ts` |
 | Risk / Lot / SLTP Math | `components/TradingApp.tsx` |
 | Settings Defaults | `lib/db.ts` |
@@ -274,3 +308,10 @@ A trade POST/PUT request is rejected (`400 Bad Request`) if any of the following
 ---
 
 *Last updated: 2026-05-30*
+
+## Account Type Isolation Notes
+
+- `Trade`, `BalanceEntry`, and `Settings` models all include `accountType`.
+- The `Settings.id` is derived from `accountType.toLowerCase()` (`"real"` or `"demo"`).
+- `resetDatabase(accountType)` deletes only records belonging to that account type.
+- The provider persists the user's selected account type in `localStorage` so it survives page refreshes.

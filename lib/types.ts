@@ -1,3 +1,5 @@
+export type AccountType = 'REAL' | 'DEMO';
+
 export type TradeDirection = 'BUY' | 'SELL';
 export type TradeResult = 'WIN' | 'LOSS' | 'BREAKEVEN';
 export type TradeStatus = 'OPEN' | 'CLOSED';
@@ -6,6 +8,7 @@ export type Emotion = 'CONFIDENT' | 'NERVOUS' | 'NEUTRAL' | 'FOMO' | 'REVENGE' |
 
 export interface Trade {
   id: string;
+  accountType: AccountType;
   date: string;          // ISO date string
   time: string;          // HH:MM
   symbol: string;        // XAUUSD
@@ -33,6 +36,7 @@ export interface Trade {
 }
 
 export interface Settings {
+  accountType: AccountType;
   accountBalance: number;
   riskPerTrade: number;   // percentage
   maxDailyLoss: number;   // percentage
@@ -47,6 +51,7 @@ export type BalanceEntryType = 'DEPOSIT' | 'WITHDRAWAL';
 
 export interface BalanceEntry {
   id: string;
+  accountType: AccountType;
   type: BalanceEntryType;
   amount: number;
   note: string;

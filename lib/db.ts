@@ -1,23 +1,26 @@
 import { prisma } from './prisma';
-import { Trade, Settings, BalanceEntry, DB } from './types';
+import { Trade, Settings, BalanceEntry, DB, AccountType } from './types';
 
-const defaultSettings: Settings = {
-  accountBalance: 0,
-  riskPerTrade: 0,
-  maxDailyLoss: 0,
-  maxDailyTrades: 0,
-  rrRatio: 2,
-  currency: '',
-  broker: '',
-  tradingName: '',
-};
+function defaultSettings(accountType: AccountType): Settings {
+  return {
+    accountType,
+    accountBalance: 0,
+    riskPerTrade: 0,
+    maxDailyLoss: 0,
+    maxDailyTrades: 0,
+    rrRatio: 2,
+    currency: '',
+    broker: '',
+    tradingName: '',
+  };
+}
 
-function calcSettingsFromBalance(balance: number): Partial<Settings> {
+function calcSettingsFromBalance(balance: number, accountType: AccountType): Partial<Settings> {
   if (balance <= 0) return {};
   const riskPerTrade = 2; // 2% default
   const maxDailyLoss = 6; // 6% default (3x riskPerTrade)
   const maxDailyTrades = Math.floor(maxDailyLoss / riskPerTrade);
-  return { accountBalance: balance, riskPerTrade, maxDailyLoss, maxDailyTrades };
+  return { accountType, accountBalance: balance, riskPerTrade, maxDailyLoss, maxDailyTrades };
 }
 
 function parseTags(tags: string): string[] {
@@ -30,6 +33,7 @@ function parseTags(tags: string): string[] {
 
 function toTrade(row: {
   id: string;
+  accountType: string;
   date: string;
   time: string;
   symbol: string;
@@ -57,6 +61,7 @@ function toTrade(row: {
 }): Trade {
   return {
     id: row.id,
+    accountType: row.accountType as AccountType,
     date: row.date,
     time: row.time,
     symbol: row.symbol,
@@ -84,9 +89,10 @@ function toTrade(row: {
   };
 }
 
-export async function getTrades(status?: string, date?: string): Promise<Trade[]> {
+export async function getTrades(accountType: AccountType, status?: string, date?: string): Promise<Trade[]> {
   const rows = await prisma.trade.findMany({
     where: {
+      accountType: accountType as Trade['accountType'],
       ...(status ? { status: status as Trade['status'] } : {}),
       ...(date ? { date } : {}),
     },
@@ -123,6 +129,7 @@ export async function updateTrade(trade: Trade): Promise<void> {
   await prisma.trade.update({
     where: { id: trade.id },
     data: {
+      accountType: trade.accountType,
       date: trade.date,
       time: trade.time,
       symbol: trade.symbol,
@@ -154,13 +161,20 @@ export async function deleteTrade(id: string): Promise<void> {
   await prisma.trade.delete({ where: { id } });
 }
 
-export async function getSettings(): Promise<Settings> {
-  const row = await prisma.settings.findUnique({ where: { id: 'default' } });
+function settingsId(accountType: AccountType): string {
+  return accountType.toLowerCase();
+}
+
+export async function getSettings(accountType: AccountType): Promise<Settings> {
+  const id = settingsId(accountType);
+  const row = await prisma.settings.findUnique({ where: { id } });
   if (!row) {
-    await saveSettings(defaultSettings);
-    return defaultSettings;
+    const defaults = defaultSettings(accountType);
+    await saveSettings(defaults);
+    return defaults;
   }
-  const base = {
+  const base: Settings = {
+    accountType: row.accountType as AccountType,
     accountBalance: row.accountBalance,
     riskPerTrade: row.riskPerTrade,
     maxDailyLoss: row.maxDailyLoss,
@@ -172,17 +186,18 @@ export async function getSettings(): Promise<Settings> {
   };
   // Auto-calculate risk params from balance if they are still at zero
   if (base.accountBalance > 0 && base.riskPerTrade === 0) {
-    const calc = calcSettingsFromBalance(base.accountBalance);
+    const calc = calcSettingsFromBalance(base.accountBalance, accountType);
     return { ...base, ...calc } as Settings;
   }
   return base;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
+  const id = settingsId(settings.accountType);
   await prisma.settings.upsert({
-    where: { id: 'default' },
+    where: { id },
     create: {
-      id: 'default',
+      id,
       ...settings,
     },
     update: {
@@ -191,8 +206,9 @@ export async function saveSettings(settings: Settings): Promise<void> {
   });
 }
 
-export async function getBalanceHistory(): Promise<BalanceEntry[]> {
+export async function getBalanceHistory(accountType: AccountType): Promise<BalanceEntry[]> {
   return prisma.balanceEntry.findMany({
+    where: { accountType: accountType as BalanceEntry['accountType'] },
     orderBy: { createdAt: 'desc' },
   });
 }
@@ -209,10 +225,17 @@ export async function getBalanceEntryById(id: string): Promise<BalanceEntry | un
   return (await prisma.balanceEntry.findUnique({ where: { id } })) ?? undefined;
 }
 
-export async function resetDatabase(): Promise<void> {
-  await prisma.trade.deleteMany();
-  await prisma.balanceEntry.deleteMany();
-  await prisma.settings.deleteMany();
+export async function resetDatabase(accountType?: AccountType): Promise<void> {
+  if (accountType) {
+    await prisma.trade.deleteMany({ where: { accountType: accountType as Trade['accountType'] } });
+    await prisma.balanceEntry.deleteMany({ where: { accountType: accountType as BalanceEntry['accountType'] } });
+    await prisma.settings.deleteMany({ where: { id: settingsId(accountType) } });
+    await saveSettings(defaultSettings(accountType));
+  } else {
+    await prisma.trade.deleteMany();
+    await prisma.balanceEntry.deleteMany();
+    await prisma.settings.deleteMany();
+  }
 }
 
 export async function closeDatabase(): Promise<void> {
@@ -220,11 +243,11 @@ export async function closeDatabase(): Promise<void> {
 }
 
 // Backward-compatible interface for gradual migration
-export async function readDB(): Promise<DB> {
+export async function readDB(accountType: AccountType): Promise<DB> {
   const [trades, settings, balanceHistory] = await Promise.all([
-    getTrades(),
-    getSettings(),
-    getBalanceHistory(),
+    getTrades(accountType),
+    getSettings(accountType),
+    getBalanceHistory(accountType),
   ]);
   return {
     trades,
@@ -233,15 +256,13 @@ export async function readDB(): Promise<DB> {
   };
 }
 
-export async function writeDB(dbData: DB): Promise<void> {
-  // This is a naive implementation for backward compatibility.
-  // In production, use individual CRUD functions above.
+export async function writeDB(accountType: AccountType, dbData: DB): Promise<void> {
   await saveSettings(dbData.settings);
-  await prisma.trade.deleteMany();
+  await prisma.trade.deleteMany({ where: { accountType: accountType as Trade['accountType'] } });
   for (const trade of dbData.trades) {
     await createTrade(trade);
   }
-  await prisma.balanceEntry.deleteMany();
+  await prisma.balanceEntry.deleteMany({ where: { accountType: accountType as BalanceEntry['accountType'] } });
   for (const entry of dbData.balanceHistory) {
     await createBalanceEntry(entry);
   }
