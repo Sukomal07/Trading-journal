@@ -3071,15 +3071,6 @@ export function TradingPageShell({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <AccountSwitcher accountType={accountType} onChange={setAccountType} />
-          <span
-            style={{
-              fontSize: 12,
-              color: "var(--text-muted)",
-              letterSpacing: "0.04em",
-            }}
-          >
-            {accountType === "REAL" ? "Real Account" : "Demo Account"}
-          </span>
         </div>
         <div
           style={{ display: "flex", gap: 10, alignItems: "center" }}

@@ -89,7 +89,6 @@ export function TradingJournalProvider({
   }, []);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const r = await fetch(`/api/trades?accountType=${accountType}`);
       const data = await r.json();
@@ -98,13 +97,11 @@ export function TradingJournalProvider({
     } catch {
       /* ignore */
     }
-    setLoading(false);
   }, [accountType]);
 
   useEffect(() => {
     let mounted = true;
 
-    setLoading(true);
     fetch(`/api/trades?accountType=${accountType}`)
       .then((r) => r.json())
       .then((data) => {
