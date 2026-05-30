@@ -43,6 +43,18 @@ export interface Settings {
   tradingName: string;
 }
 
+export type BalanceEntryType = 'DEPOSIT' | 'WITHDRAWAL';
+
+export interface BalanceEntry {
+  id: string;
+  type: BalanceEntryType;
+  amount: number;
+  note: string;
+  date: string;
+  balanceAfter: number;
+  createdAt: string;
+}
+
 export interface DailyStats {
   date: string;
   trades: number;
@@ -55,4 +67,5 @@ export interface DailyStats {
 export interface DB {
   trades: Trade[];
   settings: Settings;
+  balanceHistory: BalanceEntry[];
 }

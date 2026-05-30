@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readDB, writeDB } from "@/lib/db";
+import {
+  getTrades,
+  getSettings,
+  createTrade,
+  getTradeById,
+  updateTrade,
+  deleteTrade,
+} from "@/lib/db";
 import { Trade } from "@/lib/types";
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
@@ -30,23 +38,15 @@ function calcPnl(trade: Partial<Trade>): Partial<Trade> {
 }
 
 export async function GET(req: NextRequest) {
-  const db = readDB();
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const date = searchParams.get("date");
-  let trades = db.trades;
-  if (status) trades = trades.filter((t) => t.status === status);
-  if (date) trades = trades.filter((t) => t.date === date);
-  trades = trades.sort(
-    (a, b) =>
-      new Date(b.date + "T" + b.time).getTime() -
-      new Date(a.date + "T" + a.time).getTime(),
-  );
-  return NextResponse.json({ trades, settings: db.settings });
+  const status = searchParams.get("status") || undefined;
+  const date = searchParams.get("date") || undefined;
+  const trades = await getTrades(status, date);
+  const settings = await getSettings();
+  return NextResponse.json({ trades, settings });
 }
 
 export async function POST(req: NextRequest) {
-  const db = readDB();
   const body = await req.json();
   const now = new Date().toISOString();
   let trade: Trade = {
@@ -58,34 +58,32 @@ export async function POST(req: NextRequest) {
     status: body.exitPrice ? "CLOSED" : "OPEN",
   };
   trade = { ...trade, ...calcPnl(trade) } as Trade;
-  db.trades.push(trade);
-  await writeDB(db);
+  await createTrade(trade);
   return NextResponse.json({ trade }, { status: 201 });
 }
 
 export async function PUT(req: NextRequest) {
-  const db = readDB();
   const body = await req.json();
-  const idx = db.trades.findIndex((t) => t.id === body.id);
-  if (idx === -1)
+  const existing = await getTradeById(body.id);
+  if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   let updated: Trade = {
-    ...db.trades[idx],
+    ...existing,
     ...body,
     updatedAt: new Date().toISOString(),
     status: body.exitPrice ? "CLOSED" : "OPEN",
   };
   updated = { ...updated, ...calcPnl(updated) } as Trade;
-  db.trades[idx] = updated;
-  await writeDB(db);
+  await updateTrade(updated);
   return NextResponse.json({ trade: updated });
 }
 
 export async function DELETE(req: NextRequest) {
-  const db = readDB();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  db.trades = db.trades.filter((t) => t.id !== id);
-  await writeDB(db);
+  if (!id) {
+    return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  }
+  await deleteTrade(id);
   return NextResponse.json({ ok: true });
 }

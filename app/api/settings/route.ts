@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readDB, writeDB } from "@/lib/db";
+import { getSettings, saveSettings } from "@/lib/db";
 
 export async function GET() {
-  const db = readDB();
-  return NextResponse.json(db.settings);
+  const settings = await getSettings();
+  return NextResponse.json(settings);
 }
 
 export async function PUT(req: NextRequest) {
-  const db = readDB();
   const body = await req.json();
-  db.settings = { ...db.settings, ...body };
-  await writeDB(db);
-  return NextResponse.json(db.settings);
+  const current = await getSettings();
+  const updated = { ...current, ...body };
+  await saveSettings(updated);
+  return NextResponse.json(updated);
 }

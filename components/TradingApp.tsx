@@ -1,7 +1,14 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { Trade, Settings, TradeDirection, Session, Emotion } from "@/lib/types";
+import {
+  BalanceEntry,
+  Trade,
+  Settings,
+  TradeDirection,
+  Session,
+  Emotion,
+} from "@/lib/types";
 import {
   TrendingUp,
   TrendingDown,
@@ -13,6 +20,13 @@ import {
   Settings as SettingsIcon,
   BookOpen,
   Target,
+  Calculator,
+  Wallet,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  AlertOctagon,
+  RotateCcw,
+  Lightbulb,
   ChevronDown,
   ChevronUp,
   RefreshCw,
@@ -38,7 +52,12 @@ import {
 import { format, subDays } from "date-fns";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-export type View = "dashboard" | "journal" | "analytics" | "settings";
+export type View =
+  | "dashboard"
+  | "journal"
+  | "analytics"
+  | "calculator"
+  | "settings";
 type Toast = {
   message: string;
   tone: "success" | "error";
@@ -47,6 +66,37 @@ type Toast = {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const fmt = (n: number, d = 2) => n.toFixed(d);
 const fmtPnl = (n: number) => `${n >= 0 ? "+" : ""}$${fmt(Math.abs(n))}`;
+const PIP_VALUE_PER_001 = 0.1;
+
+function calcLotSize(balance: number, riskPct: number, slPips: number): number {
+  const riskAmt = (balance * riskPct) / 100;
+  const lot = riskAmt / (slPips * PIP_VALUE_PER_001 * 100);
+  return Math.max(0.01, parseFloat((Math.floor(lot / 0.01) * 0.01).toFixed(2)));
+}
+
+function calcSLTP(
+  entry: number,
+  direction: TradeDirection,
+  lotSize: number,
+  riskAmt: number,
+  rrRatio: number,
+) {
+  const multiplier = lotSize / 0.01;
+  const slPips = riskAmt / (PIP_VALUE_PER_001 * multiplier);
+  const tpPips = slPips * rrRatio;
+  const pipInPrice = 0.1;
+  const sl =
+    direction === "BUY" ? entry - slPips * pipInPrice : entry + slPips * pipInPrice;
+  const tp =
+    direction === "BUY" ? entry + tpPips * pipInPrice : entry - tpPips * pipInPrice;
+
+  return {
+    sl: parseFloat(sl.toFixed(2)),
+    tp: parseFloat(tp.toFixed(2)),
+    slPips: parseFloat(slPips.toFixed(1)),
+    tpPips: parseFloat(tpPips.toFixed(1)),
+  };
+}
 
 const EMOTIONS: Emotion[] = [
   "CALM",
@@ -101,6 +151,18 @@ export const S = {
     cursor: "pointer",
     fontFamily: "Syne,sans-serif",
     fontWeight: 700,
+  } as React.CSSProperties,
+  dangerBtn: {
+    background: "rgba(239,68,68,0.1)",
+    border: "1px solid rgba(239,68,68,0.3)",
+    borderRadius: 8,
+    color: "var(--red)",
+    cursor: "pointer",
+    fontFamily: "Syne,sans-serif",
+    fontWeight: 600,
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
   } as React.CSSProperties,
   input: {
     background: "var(--bg-panel)",
@@ -220,24 +282,58 @@ function TradeForm({
 }) {
   const today = format(new Date(), "yyyy-MM-dd");
   const now = format(new Date(), "HH:mm");
+  const riskAmt = (settings.accountBalance * settings.riskPerTrade) / 100;
+  const suggestedLot = calcLotSize(
+    settings.accountBalance,
+    settings.riskPerTrade,
+    15,
+  );
   const [form, setForm] = useState<Partial<Trade>>(
     initial || {
       date: today,
       time: now,
       symbol: "XAUUSD",
       direction: "BUY",
-      lotSize: 0.01,
+      lotSize: suggestedLot,
       session: "LONDON",
       emotion: "NEUTRAL",
       setup: "",
       notes: "",
       tags: [],
-      riskAmount: (settings.accountBalance * settings.riskPerTrade) / 100,
+      riskAmount: riskAmt,
     },
   );
   const [customSetup, setCustomSetup] = useState(false);
   const set = (k: keyof Trade, v: unknown) =>
     setForm((p) => ({ ...p, [k]: v }));
+
+  const suggestion = useMemo(() => {
+    if (form.entryPrice && form.lotSize && form.riskAmount && form.direction) {
+      return calcSLTP(
+        form.entryPrice,
+        form.direction,
+        form.lotSize,
+        form.riskAmount,
+        settings.rrRatio,
+      );
+    }
+    return null;
+  }, [
+    form.direction,
+    form.entryPrice,
+    form.lotSize,
+    form.riskAmount,
+    settings.rrRatio,
+  ]);
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    setForm((prev) => ({
+      ...prev,
+      stopLoss: suggestion.sl,
+      takeProfit: suggestion.tp,
+    }));
+  };
 
   return (
     <div
@@ -280,6 +376,24 @@ function TradeForm({
           >
             <X size={20} />
           </button>
+        </div>
+
+        <div className="mb-5 flex items-center gap-2.5 rounded-lg border border-[rgba(212,168,67,0.15)] bg-[rgba(212,168,67,0.06)] px-3.5 py-2.5 text-xs text-[var(--text-muted)]">
+          <Lightbulb size={14} color="var(--gold)" />
+          <span>
+            Based on your balance{" "}
+            <span className="text-[var(--gold)]">${settings.accountBalance}</span>{" "}
+            at <span className="text-[var(--gold)]">{settings.riskPerTrade}%</span>{" "}
+            risk: suggested lot{" "}
+            <span className="font-['DM_Mono',monospace] text-[var(--gold)]">
+              {suggestedLot}
+            </span>
+            , risk amount{" "}
+            <span className="font-['DM_Mono',monospace] text-[var(--gold)]">
+              ${riskAmt.toFixed(2)}
+            </span>
+            .
+          </span>
         </div>
 
         <div
@@ -433,6 +547,67 @@ function TradeForm({
               placeholder="Close price"
             />
           </div>
+
+          {suggestion && !form.stopLoss && (
+            <div
+              style={{
+                gridColumn: "1/-1",
+                background: "rgba(212,168,67,0.06)",
+                border: "1px solid rgba(212,168,67,0.2)",
+                borderRadius: 8,
+                padding: "12px 16px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  marginBottom: 8,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "var(--gold)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Suggested SL / TP (1:{settings.rrRatio} R:R)
+                </span>
+                <button
+                  onClick={applySuggestion}
+                  style={{ ...S.goldBtn, padding: "5px 14px", fontSize: 12 }}
+                >
+                  Apply
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-3 max-[640px]:grid-cols-2">
+                {[
+                  { label: "SL PRICE", value: suggestion.sl, color: "var(--red)" },
+                  { label: "TP PRICE", value: suggestion.tp, color: "var(--green)" },
+                  { label: "SL PIPS", value: suggestion.slPips, color: "var(--text)" },
+                  { label: "TP PIPS", value: suggestion.tpPips, color: "var(--text)" },
+                ].map((item) => (
+                  <div key={item.label}>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                      {item.label}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "DM Mono",
+                        fontSize: 14,
+                        color: item.color,
+                      }}
+                    >
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Setup */}
           <div style={{ gridColumn: "1/-1" }}>
@@ -797,7 +972,15 @@ export function Dashboard({
   const maxDailyLoss = (settings.accountBalance * settings.maxDailyLoss) / 100;
   const riskPerTrade = (settings.accountBalance * settings.riskPerTrade) / 100;
   const dailyLossUsed = Math.abs(Math.min(todayPnl, 0));
-  const dailyLossPct = (dailyLossUsed / maxDailyLoss) * 100;
+  const dailyLossPct =
+    maxDailyLoss > 0 ? (dailyLossUsed / maxDailyLoss) * 100 : 0;
+  const suggestedLot = calcLotSize(
+    settings.accountBalance,
+    settings.riskPerTrade,
+    15,
+  );
+  const killSwitchHit =
+    dailyLossPct >= 100 || todayTrades.length >= settings.maxDailyTrades;
 
   // Equity curve
   const equityCurve = (() => {
@@ -840,6 +1023,29 @@ export function Dashboard({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      {killSwitchHit && (
+        <div className="flex items-center gap-3 rounded-xl border border-[rgba(239,68,68,0.4)] bg-[rgba(239,68,68,0.08)] px-5 py-4 max-[640px]:items-start">
+          <AlertOctagon size={22} color="var(--red)" />
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--red)" }}>
+              KILL SWITCH - Stop Trading Now
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--text-muted)",
+                marginTop: 2,
+              }}
+            >
+              {dailyLossPct >= 100
+                ? `You have hit your daily loss limit of $${maxDailyLoss.toFixed(2)}.`
+                : `You have reached your max ${settings.maxDailyTrades} trades for today.`}{" "}
+              Close positions and step away.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top stats */}
       <div
         style={{
@@ -1027,9 +1233,9 @@ export function Dashboard({
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 13 }}>
-              Recommended Lot{" "}
+              Suggested Lot{" "}
               <span style={{ fontFamily: "DM Mono", color: "var(--gold)" }}>
-                0.01
+                {suggestedLot}
               </span>
             </div>
             <div style={{ fontSize: 13 }}>
@@ -1231,6 +1437,567 @@ export function Dashboard({
             No trades yet. Log your first trade to get started.
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Calculator View ─────────────────────────────────────────────────────────
+export function CalculatorView({ settings }: { settings: Settings }) {
+  const [balance, setBalance] = useState(settings.accountBalance);
+  const [riskPct, setRiskPct] = useState(settings.riskPerTrade);
+  const [rrRatio, setRrRatio] = useState(settings.rrRatio);
+  const [entry, setEntry] = useState("");
+  const [direction, setDirection] = useState<TradeDirection>("BUY");
+  const [slPips, setSlPips] = useState(15);
+
+  const riskAmt = (balance * riskPct) / 100;
+  const suggestedLot = calcLotSize(balance, riskPct, slPips);
+  const rewardAmt = riskAmt * rrRatio;
+  const minWinRate = Math.ceil(100 / (1 + rrRatio));
+  const sltp =
+    entry && parseFloat(entry) > 0
+      ? calcSLTP(parseFloat(entry), direction, suggestedLot, riskAmt, rrRatio)
+      : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ ...S.goldCard, padding: 24 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 4,
+            color: "var(--gold)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          Risk Calculator
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+          Adjust parameters to get your exact lot size, stop loss, and take
+          profit levels.
+        </div>
+
+        <div className="mb-5 grid grid-cols-3 gap-4 max-[900px]:grid-cols-2 max-[640px]:grid-cols-1">
+          <div>
+            <label style={S.label}>Account Balance ($)</label>
+            <input
+              style={S.input}
+              type="number"
+              value={balance}
+              onChange={(e) => setBalance(parseFloat(e.target.value) || 0)}
+            />
+          </div>
+          <div>
+            <label style={S.label}>Risk per trade (%)</label>
+            <input
+              style={S.input}
+              type="number"
+              step="0.5"
+              min="0.5"
+              max="10"
+              value={riskPct}
+              onChange={(e) => setRiskPct(parseFloat(e.target.value) || 1)}
+            />
+          </div>
+          <div>
+            <label style={S.label}>R:R Ratio (1:?)</label>
+            <input
+              style={S.input}
+              type="number"
+              step="0.5"
+              min="1"
+              max="10"
+              value={rrRatio}
+              onChange={(e) => setRrRatio(parseFloat(e.target.value) || 1)}
+            />
+          </div>
+          <div>
+            <label style={S.label}>Stop Loss (pips)</label>
+            <input
+              style={S.input}
+              type="number"
+              min="5"
+              max="200"
+              value={slPips}
+              onChange={(e) => setSlPips(parseInt(e.target.value) || 15)}
+            />
+          </div>
+          <div>
+            <label style={S.label}>Entry Price (optional)</label>
+            <input
+              style={S.input}
+              type="number"
+              step="0.01"
+              value={entry}
+              onChange={(e) => setEntry(e.target.value)}
+              placeholder="e.g. 2315.50"
+            />
+          </div>
+          <div>
+            <label style={S.label}>Direction</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["BUY", "SELL"] as TradeDirection[]).map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setDirection(item)}
+                  style={{
+                    padding: "10px 0",
+                    borderRadius: 8,
+                    border: "1px solid",
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    fontFamily: "Syne,sans-serif",
+                    borderColor:
+                      direction === item
+                        ? item === "BUY"
+                          ? "var(--green)"
+                          : "var(--red)"
+                        : "var(--border-dim)",
+                    background:
+                      direction === item
+                        ? item === "BUY"
+                          ? "rgba(34,197,94,0.1)"
+                          : "rgba(239,68,68,0.1)"
+                        : "transparent",
+                    color:
+                      direction === item
+                        ? item === "BUY"
+                          ? "var(--green)"
+                          : "var(--red)"
+                        : "var(--text-muted)",
+                  }}
+                >
+                  {item === "BUY" ? "BUY" : "SELL"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-3">
+          {[
+            { label: "Suggested Lot", value: suggestedLot.toString(), color: "var(--gold)" },
+            { label: "Risk Amount", value: `$${riskAmt.toFixed(2)}`, color: "var(--red)" },
+            { label: "Reward Amount", value: `$${rewardAmt.toFixed(2)}`, color: "var(--green)" },
+            { label: "Min Win Rate", value: `${minWinRate}%`, color: "var(--blue)" },
+            { label: "SL Pips", value: slPips.toString(), color: "var(--text)" },
+            { label: "TP Pips", value: (slPips * rrRatio).toFixed(1), color: "var(--text)" },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-lg bg-black/30 px-4 py-3"
+            >
+              <div className="mb-1 text-[10px] uppercase tracking-[0.06em] text-[var(--text-muted)]">
+                {item.label}
+              </div>
+              <div
+                style={{
+                  fontFamily: "DM Mono",
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: item.color,
+                }}
+              >
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {sltp && (
+        <div style={{ ...S.card, padding: 24 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              marginBottom: 16,
+              color: "var(--text-muted)",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+            }}
+          >
+            Price Levels for Entry {entry}
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-4">
+            <PriceLevel
+              label="Stop Loss"
+              value={sltp.sl.toString()}
+              sub={`${sltp.slPips} pips away`}
+              color="var(--red)"
+            />
+            <PriceLevel
+              label="Entry"
+              value={parseFloat(entry).toFixed(2)}
+              sub={direction}
+              color="var(--text)"
+            />
+            <PriceLevel
+              label="Take Profit"
+              value={sltp.tp.toString()}
+              sub={`${sltp.tpPips} pips away`}
+              color="var(--green)"
+            />
+          </div>
+
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
+              Risk / Reward Visualized
+            </div>
+            <div className="flex h-7 overflow-hidden rounded-md">
+              <div
+                className="flex items-center justify-center text-xs font-bold text-white"
+                style={{
+                  background: "var(--red)",
+                  width: `${100 / (1 + rrRatio)}%`,
+                }}
+              >
+                Loss ${riskAmt.toFixed(0)}
+              </div>
+              <div className="flex flex-1 items-center justify-center bg-[#22C55E] text-xs font-bold text-white">
+                Win ${rewardAmt.toFixed(0)}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ ...S.card, padding: 24 }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 16,
+            color: "var(--text-muted)",
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+          }}
+        >
+          Compound Growth Projection (10 wins)
+        </div>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-2">
+          {Array.from({ length: 10 }, (_, index) => {
+            const projected =
+              balance * Math.pow(1 + (riskPct * rrRatio) / 100, index + 1);
+            return (
+              <div
+                key={index}
+                className="rounded-lg bg-[var(--bg-panel)] px-3 py-2.5 text-center"
+              >
+                <div className="mb-1 text-[10px] text-[var(--text-muted)]">
+                  Win {index + 1}
+                </div>
+                <div className="font-['DM_Mono',monospace] text-[13px] font-semibold text-[var(--green)]">
+                  ${projected.toFixed(0)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 12 }}>
+          Assumes each win hits your exact 1:{rrRatio} target and lot size scales
+          with balance.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PriceLevel({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid var(--border-dim)",
+        borderRadius: 8,
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          color,
+          marginBottom: 4,
+          textTransform: "uppercase",
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontFamily: "DM Mono",
+          fontSize: 22,
+          fontWeight: 700,
+          color,
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+        {sub}
+      </div>
+    </div>
+  );
+}
+
+export function BalanceTracker({
+  settings,
+  onSettingsUpdate,
+  onToast,
+}: {
+  settings: Settings;
+  onSettingsUpdate: (settings: Settings) => void;
+  onToast: (toast: Toast) => void;
+}) {
+  const [history, setHistory] = useState<BalanceEntry[]>([]);
+  const [type, setType] = useState<"DEPOSIT" | "WITHDRAWAL">("DEPOSIT");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const loadHistory = useCallback(async () => {
+    const response = await fetch("/api/balance");
+    const data = await response.json();
+    setHistory(data);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetch("/api/balance")
+      .then((response) => response.json())
+      .then((data) => {
+        if (mounted) setHistory(data);
+      })
+      .catch(() => {
+        if (mounted) setHistory([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const submit = async () => {
+    if (!amount || parseFloat(amount) <= 0) return;
+    setLoading(true);
+    const amt = parseFloat(amount);
+    const balanceAfter =
+      type === "DEPOSIT"
+        ? settings.accountBalance + amt
+        : Math.max(0, settings.accountBalance - amt);
+    const response = await fetch("/api/balance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, amount: amt, note, balanceAfter }),
+    });
+    const data = await response.json();
+    if (response.ok) {
+      onSettingsUpdate(data.settings);
+      onToast({ message: "Balance transaction recorded.", tone: "success" });
+      setAmount("");
+      setNote("");
+      await loadHistory();
+    } else {
+      onToast({ message: "Could not record transaction.", tone: "error" });
+    }
+    setLoading(false);
+  };
+
+  const deleteEntry = async (id: string) => {
+    if (!confirm("Delete this entry?")) return;
+    const response = await fetch(`/api/balance?id=${id}`, { method: "DELETE" });
+    const data = await response.json();
+    if (response.ok) {
+      onSettingsUpdate(data.settings);
+      onToast({ message: "Balance transaction deleted.", tone: "success" });
+      await loadHistory();
+    } else {
+      onToast({ message: "Could not delete transaction.", tone: "error" });
+    }
+  };
+
+  const previewBalance =
+    amount && parseFloat(amount) > 0
+      ? type === "DEPOSIT"
+        ? settings.accountBalance + parseFloat(amount)
+        : Math.max(0, settings.accountBalance - parseFloat(amount))
+      : null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ ...S.goldCard, padding: 24 }}>
+        <div className="mb-1 text-[11px] uppercase tracking-[0.08em] text-[rgba(212,168,67,0.6)]">
+          Current Balance
+        </div>
+        <div className="font-['DM_Mono',monospace] text-4xl font-extrabold text-[var(--gold)]">
+          ${settings.accountBalance.toFixed(2)}
+        </div>
+      </div>
+
+      <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+          Record Deposit / Withdrawal
+        </div>
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          {(["DEPOSIT", "WITHDRAWAL"] as const).map((item) => (
+            <button
+              key={item}
+              onClick={() => setType(item)}
+              style={{
+                padding: "10px 0",
+                borderRadius: 8,
+                border: "1px solid",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                fontFamily: "Syne,sans-serif",
+                borderColor:
+                  type === item
+                    ? item === "DEPOSIT"
+                      ? "var(--green)"
+                      : "var(--red)"
+                    : "var(--border-dim)",
+                background:
+                  type === item
+                    ? item === "DEPOSIT"
+                      ? "rgba(34,197,94,0.1)"
+                      : "rgba(239,68,68,0.1)"
+                    : "transparent",
+                color:
+                  type === item
+                    ? item === "DEPOSIT"
+                      ? "var(--green)"
+                      : "var(--red)"
+                    : "var(--text-muted)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              {item === "DEPOSIT" ? (
+                <ArrowUpCircle size={15} />
+              ) : (
+                <ArrowDownCircle size={15} />
+              )}
+              {item}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3 max-[640px]:grid-cols-1">
+          <div>
+            <label style={S.label}>Amount ($)</label>
+            <input
+              style={S.input}
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <div>
+            <label style={S.label}>Note (optional)</label>
+            <input
+              style={S.input}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. Monthly top-up"
+            />
+          </div>
+        </div>
+        {previewBalance != null && (
+          <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-muted)" }}>
+            Balance after:{" "}
+            <span style={{ fontFamily: "DM Mono", color: "var(--gold)" }}>
+              ${previewBalance.toFixed(2)}
+            </span>
+          </div>
+        )}
+        <button
+          onClick={submit}
+          disabled={loading || !amount}
+          style={{
+            ...S.goldBtn,
+            padding: "11px 24px",
+            fontSize: 14,
+            marginTop: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            opacity: loading || !amount ? 0.5 : 1,
+          }}
+        >
+          <Wallet size={15} /> {loading ? "Saving..." : "Record Transaction"}
+        </button>
+      </div>
+
+      <div style={{ ...S.card, padding: 24 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>
+          Transaction History
+        </div>
+        {history.length === 0 && (
+          <div className="py-5 text-center text-[13px] text-[var(--text-muted)]">
+            No transactions yet
+          </div>
+        )}
+        {[...history].reverse().map((entry) => (
+          <div
+            key={entry.id}
+            className="flex items-center justify-between gap-3 border-b border-[var(--border-dim)] py-2.5"
+          >
+            <div className="flex items-center gap-2.5">
+              {entry.type === "DEPOSIT" ? (
+                <ArrowUpCircle size={16} color="var(--green)" />
+              ) : (
+                <ArrowDownCircle size={16} color="var(--red)" />
+              )}
+              <div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color:
+                      entry.type === "DEPOSIT" ? "var(--green)" : "var(--red)",
+                  }}
+                >
+                  {entry.type === "DEPOSIT" ? "+" : "-"}${entry.amount.toFixed(2)}
+                </div>
+                <div className="text-[11px] text-[var(--text-muted)]">
+                  {entry.date}
+                  {entry.note ? ` · ${entry.note}` : ""}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="font-['DM_Mono',monospace] text-[13px] text-[var(--text-muted)]">
+                ${entry.balanceAfter.toFixed(2)}
+              </div>
+              <button
+                onClick={() => deleteEntry(entry.id)}
+                style={{ ...S.btn, padding: 5, color: "var(--red)", border: "none" }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1594,11 +2361,14 @@ export function Analytics({ trades }: { trades: Trade[] }) {
 export function SettingsPanel({
   settings,
   onSave,
+  onReset,
 }: {
   settings: Settings;
   onSave: (s: Settings) => void;
+  onReset: () => void;
 }) {
   const [form, setForm] = useState(settings);
+  const [confirmReset, setConfirmReset] = useState(false);
   const set = (k: keyof Settings, v: unknown) =>
     setForm((p) => ({ ...p, [k]: v }));
   const riskAmt = ((form.accountBalance * form.riskPerTrade) / 100).toFixed(2);
@@ -1758,6 +2528,58 @@ export function SettingsPanel({
           </div>
         ))}
       </div>
+
+      <div
+        style={{
+          ...S.card,
+          padding: 24,
+          border: "1px solid rgba(239,68,68,0.2)",
+        }}
+      >
+        <h3
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            marginBottom: 4,
+            color: "var(--red)",
+          }}
+        >
+          Danger Zone
+        </h3>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
+          This permanently deletes all trades and balance history. Your settings
+          are kept.
+        </p>
+        {!confirmReset ? (
+          <button
+            onClick={() => setConfirmReset(true)}
+            style={{ ...S.dangerBtn, padding: "10px 20px", fontSize: 13 }}
+          >
+            <RotateCcw size={14} /> Reset All Data
+          </button>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span style={{ fontSize: 13, color: "var(--red)" }}>
+              Are you sure? This cannot be undone.
+            </span>
+            <button
+              onClick={() => {
+                onReset();
+                setConfirmReset(false);
+              }}
+              style={{ ...S.dangerBtn, padding: "8px 18px", fontSize: 13 }}
+            >
+              Yes, Reset
+            </button>
+            <button
+              onClick={() => setConfirmReset(false)}
+              style={{ ...S.btn, padding: "8px 18px", fontSize: 13 }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1854,6 +2676,20 @@ export function useTradingJournal() {
     setToast({ message: "Settings saved.", tone: "success" });
   };
 
+  const updateSettings = (nextSettings: Settings) => {
+    setSettings(nextSettings);
+  };
+
+  const resetAll = async () => {
+    const response = await fetch("/api/reset", { method: "POST" });
+    if (!response.ok) {
+      setToast({ message: "Could not reset journal data.", tone: "error" });
+      return;
+    }
+    await load();
+    setToast({ message: "Trades and balance history reset.", tone: "success" });
+  };
+
   const filteredTrades = trades.filter((t) => {
     if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
     if (
@@ -1885,6 +2721,8 @@ export function useTradingJournal() {
     saveTrade,
     deleteTrade,
     saveSettings,
+    updateSettings,
+    resetAll,
   };
 }
 
@@ -1924,6 +2762,7 @@ export function TradingPageShell({
       { id: "dashboard", label: "Dashboard", icon: BarChart3 },
       { id: "journal", label: "Journal", icon: BookOpen },
       { id: "analytics", label: "Analytics", icon: Activity },
+      { id: "calculator", label: "Calculator", icon: Calculator },
       { id: "settings", label: "Settings", icon: SettingsIcon },
     ];
 

@@ -1,17 +1,18 @@
 "use client";
 
 import {
-  SettingsPanel,
+  BalanceTracker,
+  CalculatorView,
   TradingPageShell,
   useTradingJournal,
 } from "@/components/TradingApp";
 
-export default function SettingsPage() {
+export default function CalculatorPage() {
   const journal = useTradingJournal();
 
   return (
     <TradingPageShell
-      activeView="settings"
+      activeView="calculator"
       trades={journal.trades}
       settings={journal.settings}
       loading={journal.loading}
@@ -23,11 +24,14 @@ export default function SettingsPage() {
       setToast={journal.setToast}
       saveTrade={journal.saveTrade}
     >
-      <SettingsPanel
-        settings={journal.settings}
-        onSave={journal.saveSettings}
-        onReset={journal.resetAll}
-      />
+      <div className="grid grid-cols-2 items-start gap-6 max-[1100px]:grid-cols-1">
+        <CalculatorView settings={journal.settings} />
+        <BalanceTracker
+          settings={journal.settings}
+          onSettingsUpdate={journal.updateSettings}
+          onToast={journal.setToast}
+        />
+      </div>
     </TradingPageShell>
   );
 }

@@ -1,0 +1,98 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum TradeDirection {
+  BUY
+  SELL
+}
+
+enum TradeResult {
+  WIN
+  LOSS
+  BREAKEVEN
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+}
+
+enum Session {
+  LONDON
+  NEW_YORK
+  ASIAN
+  OVERLAP
+}
+
+enum Emotion {
+  CONFIDENT
+  NERVOUS
+  NEUTRAL
+  FOMO
+  REVENGE
+  CALM
+}
+
+enum BalanceEntryType {
+  DEPOSIT
+  WITHDRAWAL
+}
+
+model Trade {
+  id           String        @id
+  date         String
+  time         String
+  symbol       String
+  direction    TradeDirection
+  lotSize      Float
+  entryPrice   Float
+  stopLoss     Float
+  takeProfit   Float
+  exitPrice    Float?
+  status       TradeStatus
+  result       TradeResult?
+  pnl          Float?
+  pips         Float?
+  riskAmount   Float
+  rewardAmount Float?
+  rrRatio      Float?
+  setup        String
+  session      Session
+  emotion      Emotion
+  notes        String
+  screenshot   String?
+  tags         String        // JSON array stored as string
+  createdAt    String
+  updatedAt    String
+}
+
+model Settings {
+  id             String @id @default("default")
+  accountBalance Float
+  riskPerTrade   Float
+  maxDailyLoss   Float
+  maxDailyTrades Int
+  rrRatio        Float
+  currency       String
+  broker         String
+  tradingName    String
+}
+
+model BalanceEntry {
+  id           String           @id
+  type         BalanceEntryType
+  amount       Float
+  note         String
+  date         String
+  balanceAfter Float
+  createdAt    String
+}
